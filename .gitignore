@@ -1,0 +1,9 @@
+Backup/*
+bin/*
+obj/*
+Properties/*
+SpaceChaseDLL.csproj
+SpaceChaseDLL.sln
+UpgradeLog.htm
+SpaceChaseDLL.suo
+SpaceChaseDLL.csproj.user

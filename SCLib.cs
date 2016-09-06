@@ -8,6 +8,9 @@ namespace SpaceChaseLib
 
 {
     #region Structs
+
+    #region UnchangableStructs
+
     public struct StudentInfo           // This structure is used to hold the students information
     {
         public string studentLastName;      // Student's last name
@@ -16,14 +19,6 @@ namespace SpaceChaseLib
         public string studentCourse;        // Students's course code
     }
 
-    public struct GameStatus            // This structure holds the game status
-    {
-        public int GameLevel;           // current game level (zero if a task is being performed or in menu)
-        public int TaskLevel;           // current task (zero if a game is playing or in menu)
-        public int iteration;           // the number of times this task/game has been repeated
-        public double LevelTimeMS;      // time taken so far in the game level or task
-        public double TotalTimeMS;      // total game time taken for all levels
-    }
 
     public struct ScoutControl           // This structure hold the thruster and control values for the Scout Ship
     {
@@ -35,6 +30,24 @@ namespace SpaceChaseLib
         public bool EnergyExtractorOn;  // This is set to true if you want the Energy Extractor to be operating
         public bool MinerOn;            // This is set to true if you want the Miner to be operating
     }
+
+
+    public struct report                        // This structre is used in task one to report on the blackhole location
+    {
+        public bool complete;                   // When this is set to true the task is complete
+        public double X;                        // This has to hold the X coord of the BlackHole
+        public double Y;                        // This has to hold the Y coord of the BlackHole
+    }
+
+    public struct GameStatus            // This structure holds the game status
+    {
+        public int GameLevel;           // current game level (zero if a task is being performed or in menu)
+        public int TaskLevel;           // current task (zero if a game is playing or in menu)
+        public int iteration;           // the number of times this task/game has been repeated
+        public double LevelTimeMS;      // time taken so far in the game level or task
+        public double TotalTimeMS;      // total game time taken for all levels
+    }
+
 
     public struct ScoutStatus           // This structure hold the lastest status of the scout ship
     {
@@ -56,9 +69,6 @@ namespace SpaceChaseLib
         public bool isMinerOn;                  // True if the miner is on.
     }
 
-    // ObjectType is an enumeration of the different object types the ship's sensors can detect
-    public enum ObjectType { Asteroid, BlackHole, Distortion, CombatDrone, Factory }
-
     public struct SensorInfo                    // contains the information gathered from a sensor
     {
         public double range;                    // The range to the detected object
@@ -67,23 +77,14 @@ namespace SpaceChaseLib
         public int objectID;                    // This is a unique ID for this object in its type
     }
 
-    public struct report                        // This structre is used in task one to report on the blackhole location
-    {
-        public bool complete;                   // When this is set to true the task is complete
-        public double X;                        // This has to hold the X coord of the BlackHole
-        public double Y;                        // This has to hold the Y coord of the BlackHole
-    }
+    // ObjectType is an enumeration of the different object types the ship's sensors can detect
+    public enum ObjectType { Asteroid, BlackHole, Distortion, CombatDrone, Factory }
 
-    public struct PID_Params                // This structure is used to run a PID controller
-    {
-        public double input;                    // The current value
-        public double kP, kI, kD, kO;           // constants
-        public double eP, eI, eD;               // errors
-        public double setPoint;                 // The value we wish to obtain
-        public double lastErrorD;               // saving the previous D error
-        public double output;                   // output is feedback to the object being controlled
-        public double maxOut, minOut;           // Limits of the output
-    }
+    #endregion
+
+
+
+
 
     public struct pose
     {
@@ -95,15 +96,22 @@ namespace SpaceChaseLib
 
     public class SCLib
     {
+        //Unchangable Globals
+
+
         // "m" represents member variables
+        // "g" represents global variables
+
         // TODO: Add your global variables here
-        ScoutControl mScoutControl = new ScoutControl();
+        ScoutControl gScoutControl = new ScoutControl();
         pose mScoutPose = new pose();
         ScoutStatus mScoutStatus = new ScoutStatus();
         double TwoPI = Math.PI * 2;
-        PID_Params mPIDParamsR = new PID_Params();
-        PID_Params mPIDParamsX = new PID_Params();   // holds the PID parameters for the Sideways motion PID
-        PID_Params mPIDParamsY = new PID_Params();   // holds the PID parameters for the forwards/backwards motion PID
+
+
+        PID gRotationalPID = new PID();
+        PID gXPID = new PID();   // holds the PID parameters for the Sideways motion PID
+        PID gYPID = new PID();   // holds the PID parameters for the forwards/backwards motion PID
 
         pose[] mPath = new pose[20];                 // Used to hold a series of waypoints for the scount to follow
         int mPathIndex;                              // Used to hold the current waypoint
@@ -180,16 +188,7 @@ namespace SpaceChaseLib
         //      in the SCParameters.txt file.
         public ScoutControl ThrustersAndControl()
         {
-            //ScoutControl t = new ScoutControl();
-
-            //t.ThrustForward = 1;            // Replace the value with the forward thrust
-            //t.ThrustRight = 1;              // Replace the value with the sideways thrust
-            //t.ThrustCW = 1;                 // Replace the value with the rotational thrust
-            //t.ShieldOn = false;             // Set to true to turn the shields on
-            //t.EnergyExtractorOn = false;    // Set to true to turn on the Energy Extractor
-            //t.MinerOn = false;              // Set to true to turn on the Miner.
-
-            return mScoutControl;
+            return gScoutControl;
         }
 
 
@@ -205,11 +204,11 @@ namespace SpaceChaseLib
         //      when an asteroid has been detected. For this X and Y are not required.
         public report Report()
         {
-            //report r = new report();    // set up a report structure to return
+            report r = new report();    // set up a report structure to return
 
-            //r.complete = false;         // Set to true when the report is ready
-            //r.X = 0;                    // Set to the blackhole's X coord
-            //r.Y = 0;                    // Set to the blackhole's Y coord
+            r.complete = false;         // Set to true when the report is ready
+            r.X = 0;                    // Set to the blackhole's X coord
+            r.Y = 0;                    // Set to the blackhole's Y coord
 
             return mReportObject;
         }
@@ -362,20 +361,15 @@ namespace SpaceChaseLib
         // This method is call once at the start of a task and it give the task number.
         public void StartTask(int task)
         {
-            mScoutControl.ThrustCW = 0;
-            mScoutControl.ThrustForward = 0;
-            mScoutControl.ThrustRight = 0;
-            mScoutControl.ShieldOn = false;
-            mScoutControl.MinerOn = false;
-            mScoutControl.EnergyExtractorOn = false;
+            InitializeControl();
 
             mScoutPose.X = 0;
             mScoutPose.Y = 0;
             mScoutPose.angle = 0;
 
-            mPIDParamsR = PIDParametersSet(10000, 0, 0, 1, -3, 3, 0, 0);
-            mPIDParamsX = PIDParametersSet(10, 0, 0, 1, -3, 3, 0, 0);
-            mPIDParamsY = PIDParametersSet(10, 0, 0, 1, -3, 3, 0, 0);
+            gRotationalPID.InitializePID(-3, 3, 10000, 0, 0);
+            gXPID.InitializePID(-1.5, 1.5, 10, 0, 0);
+            gYPID.InitializePID(-3, 3, 10, 0, 0);
 
             mPath[0].X = 500;        // Generate a path of waypoints
             mPath[0].Y = 500;
@@ -426,7 +420,7 @@ namespace SpaceChaseLib
         //      It give the task level.
         public void InTask(int task)
         {
-            TrackShip();
+            TrackShip(mScoutStatus,mScoutPose);
             mAvoidThrust.X = 0;
             mAvoidThrust.Y = 0;
             avoidObject();
@@ -493,111 +487,114 @@ namespace SpaceChaseLib
 
         #region PIDMethods
 
-        // Method      : PIDController
-        // Input       : pidP (type: PID_Params)
-        // Output      : (type: PID_Params)
-        // Description :
-        //      This method will run one step of a PID controller.
-        //      It accepts PID parameters from the previous step and a control input (set point).
-        //      It returns the PID parameters for the next step and the control output.
 
-        private PID_Params PIDController(PID_Params pidP)
+        private class PID
         {
-            pidP.eP = pidP.setPoint - pidP.input;  // P error
+       
+                      
+            // constants
+            public double mPropConstant, mIntegralConstant, mDerivativeConstant;
 
-            pidP.eD = pidP.eP - pidP.lastErrorD;   // D error
-            pidP.lastErrorD = pidP.eP;            // Save last error;
+            /// <summary>
+            /// Overall constant, almost always set to 1.
+            /// </summary>
+            public double mOverallConstant;     
+                  
+            //Error values
+            public double mPropError, mIntegralError, mDerivativeError;
 
-            pidP.output = (pidP.kP * pidP.eP + pidP.kI * pidP.eI + pidP.kD * pidP.eD) / pidP.kO;
+            // saving the previous D error
+            public double mLastDerivativeError;
 
-            if (pidP.output > pidP.maxOut)      // cap the control output
-                pidP.output = pidP.maxOut;
-            else if (pidP.output < pidP.minOut)
-                pidP.output = pidP.minOut;
+            // Limits of the perscribed thrust
+            public double mMaxOut, mMinOut;           
 
-            pidP.eI += pidP.eP;               // I error
-            if (pidP.eI > pidP.maxOut)        // cap the I error
-                pidP.eI = pidP.maxOut;
-            if (pidP.eI < pidP.minOut)
-                pidP.eI = pidP.minOut;
+            /// <summary>
+            /// Initializes the PID's attributes
+            /// </summary>
+            /// <param name="aProportionalConstant"></param>
+            /// <param name="aIntegralConstant"></param>
+            /// <param name="aDerivativeConstant"></param>
+            public void InitializePID(double aMinOut, double aMaxOut, double aProportionalConstant, double aIntegralConstant, double aDerivativeConstant)
+            {
+                mDerivativeError = 0;
+                mIntegralError = 0;
+                mPropError = 0;
+                mPropConstant = aProportionalConstant;
+                mDerivativeConstant = aDerivativeConstant;
+                mIntegralConstant = aIntegralConstant;
+                mOverallConstant = 1;
+                mLastDerivativeError = 0;
+                mMinOut = aMinOut;
+                mMaxOut = aMaxOut;
+                
+            }
 
-            return pidP;
+            /// <summary>
+            /// Calculates the required thrust to get to the target velocity.
+            /// </summary>
+            /// <param name="aTargetVelocity">The Target Velocity, the goal to get to.</param>
+            /// <param name="aCurrentVelocity">The Current Velocity, how close the ship is to the goal already.</param>
+            /// <returns>The thrust needed in order to reach the target velocity.</returns>
+            public double CalculateThrust(double aTargetVelocity, double aCurrentVelocity)
+            {
+                double lThrustPerscription = 0;
+
+                mPropError = aTargetVelocity - aCurrentVelocity; 
+                mDerivativeError = mPropError - mLastDerivativeError;   
+                mLastDerivativeError = mPropError;    
+
+
+                lThrustPerscription = (mPropConstant * mPropError + mIntegralConstant * mIntegralError + mDerivativeConstant * mDerivativeError) / mOverallConstant;
+
+                //Cap the thrust perscription
+                if (lThrustPerscription > mMaxOut)      
+                    lThrustPerscription = mMaxOut;
+                else if (lThrustPerscription < mMinOut)
+                    lThrustPerscription = mMinOut;
+
+                //Get new Integral error and cap it as needed
+                mIntegralError += mPropError;               
+                if (mIntegralError > mMaxOut)        
+                    mIntegralError = mMaxOut;
+                if (mIntegralError < mMinOut)
+                    mIntegralError = mMinOut;
+
+                return lThrustPerscription;
+            }
+
+
+            
         }
 
-        //Method        : PIDParametersSet
-        //Input         : pidP, (type PI_Params) P,I,D,O,Min,Max,Setpoint,input (all type double)
-        //Output        : (type: PID_Params)
-        //Description   : 
-        //      Set the PID Constants in pidP
-        private PID_Params PIDParametersSet(PID_Params pidP, double P, double I, double D, double O, double Min, double Max, double Setpoint, double input)
-        {
-            PID_Params p;
-            p = pidP;
-
-            p.input = input;
-            p.kD = D;
-            p.kI = I;
-            p.kO = O;
-            p.kP = P;
-            p.maxOut = Max;
-            p.minOut = Min;
-            p.setPoint = Setpoint;
-
-            return p;
-        }
-
-
-        //Method        : PIDParametersSet
-        //Input         : P,I,D,O,Min,Max,Setpoint,input (all type double)
-        //Output        : (type: PID_Params)
-        //Description   : 
-        //      Set the PID Constants
-        private PID_Params PIDParametersSet(double P, double I, double D, double O, double Min, double Max, double Setpoint, double input)
-        {
-            PID_Params p;
-
-            p.eD = 0;
-            p.eI = 0;
-            p.eP = 0;
-            p.input = 0;
-            p.kD = D;
-            p.kI = I;
-            p.kO = O;
-            p.kP = P;
-            p.lastErrorD = 0;
-            p.maxOut = Max;
-            p.minOut = Min;
-            p.output = 0;
-            p.setPoint = Setpoint;
-
-            return p;
-        }
+       
 
         #endregion
 
         #region PriavteMethods
 
-        private void TrackShip()             // Use the current velocities to track the ship
+        private void TrackShip(ScoutStatus aScoutStatus, pose aScoutPose)             // Use the current velocities to track the ship
         {
             double dx, dy, ndx, ndy;
 
 
-            dy = mScoutStatus.averageVelocityForward * mScoutStatus.deltaTime;  // Distance moved forward since last time (use average velocity)
-            dx = mScoutStatus.averageVelocityRight * mScoutStatus.deltaTime;    // Distance moved sideways since last time
+            dy = aScoutStatus.averageVelocityForward * aScoutStatus.deltaTime;  // Distance moved forward since last time (use average velocity)
+            dx = aScoutStatus.averageVelocityRight * aScoutStatus.deltaTime;    // Distance moved sideways since last time
 
-            mScoutPose.angle += mScoutStatus.currentVelocityAngularCW * (mScoutStatus.deltaTime / 2);  // Get half of the angle rotated through since last time
-                                                                                      // (This is the average angle and is used to make the tracking more accurate)
-            mScoutPose.angle = mScoutPose.angle % TwoPI;          // ensure to angle is between -2*PI ans 2*PI
+            aScoutPose.angle += aScoutStatus.currentVelocityAngularCW * (aScoutStatus.deltaTime / 2);  // Get half of the angle rotated through since last time
+                                                                                                       // (This is the average angle and is used to make the tracking more accurate)
+            aScoutPose.angle = aScoutPose.angle % TwoPI;          // ensure to angle is between -2*PI ans 2*PI
 
-            ndx = dx * Math.Cos(mScoutPose.angle) + dy * Math.Sin(mScoutPose.angle);  // Rotate the forward and sideways distances to world coords
-            ndy = -dx * Math.Sin(mScoutPose.angle) + dy * Math.Cos(mScoutPose.angle);
-            mScoutPose.X += ndx;                             // Update the scouts coordinates
-            mScoutPose.Y += ndy;
+            ndx = dx * Math.Cos(aScoutPose.angle) + dy * Math.Sin(aScoutPose.angle);  // Rotate the forward and sideways distances to world coords
+            ndy = -dx * Math.Sin(aScoutPose.angle) + dy * Math.Cos(aScoutPose.angle);
+            aScoutPose.X += ndx;                             // Update the scouts coordinates
+            aScoutPose.Y += ndy;
 
-            mScoutPose.angle += mScoutStatus.currentVelocityAngularCW * (mScoutStatus.deltaTime / 2);    // Get the last half of the angle rotated through
-            mScoutPose.angle = mScoutPose.angle % TwoPI;          // ensure to angle is between -2*PI ans 2*PI
+            aScoutPose.angle += aScoutStatus.currentVelocityAngularCW * (aScoutStatus.deltaTime / 2);    // Get the last half of the angle rotated through
+            aScoutPose.angle = aScoutPose.angle % TwoPI;          // ensure to angle is between -2*PI ans 2*PI
 
         }
+
 
         private void MoveToTarget(double targetX, double targetY, double maxVelocity)
         {
@@ -625,10 +622,9 @@ namespace SpaceChaseLib
                 requiredCWVel = 0.005f;
             if (requiredCWVel < -0.005)
                 requiredCWVel = -0.005;
-            mPIDParamsR = PIDParametersSet(mPIDParamsR, 10000, 0, 0, 1, -3, 3, requiredCWVel, mScoutStatus.currentVelocityAngularCW);
-            mPIDParamsR = PIDController(mPIDParamsR);
 
-            mScoutControl.ThrustCW = mPIDParamsR.output;
+            gScoutControl.ThrustCW = gRotationalPID.CalculateThrust(requiredCWVel, mScoutStatus.currentVelocityAngularCW);
+
 
 
             double distance = Math.Sqrt(deltaX * deltaX + deltaY * deltaY); //Distance to waypoint
@@ -642,21 +638,12 @@ namespace SpaceChaseLib
             requiredXVel = newdX / 200;     // The required velocity is slower as the scout gets closer to the destination
             requiredYVel = newdY / 200;
 
-            mPIDParamsX = PIDParametersSet(mPIDParamsX, 10, 0, 0, 1, -1.5, 1.5, requiredXVel, mScoutStatus.currentVelocityRight);
-            mPIDParamsX = PIDController(mPIDParamsX);   // Call the PID
-
-
-            mScoutControl.ThrustRight = mPIDParamsX.output + mAvoidThrust.X;
+            gScoutControl.ThrustRight = gXPID.CalculateThrust(requiredXVel, mScoutStatus.currentVelocityRight);
 
             if (requiredYVel > maxVelocity)
                 requiredYVel = maxVelocity;
 
-            mPIDParamsY = PIDParametersSet(mPIDParamsY, 10, 0, 0, 1, -3, 3, requiredYVel, mScoutStatus.currentVelocityForward);
-
-            mPIDParamsY = PIDController(mPIDParamsY);   // Call the PID
-
-            mScoutControl.ThrustForward = mPIDParamsY.output + mAvoidThrust.Y;
-
+            gScoutControl.ThrustForward = gYPID.CalculateThrust(requiredYVel, mScoutStatus.currentVelocityForward);
         }
 
         private void MoveToWaypoint(double MaxVel)
@@ -705,9 +692,9 @@ namespace SpaceChaseLib
             MoveToWaypoint(0.4);
 
 
-            mScoutControl.MinerOn = false;
-            mScoutControl.ShieldOn = false;
-            mScoutControl.EnergyExtractorOn = false;
+            gScoutControl.MinerOn = false;
+            gScoutControl.ShieldOn = false;
+            gScoutControl.EnergyExtractorOn = false;
         }
 
         private pose RotateAboutZ(double x, double y, double angle) // Rotate a vector clockwise through a given angle
@@ -751,6 +738,18 @@ namespace SpaceChaseLib
             }
         }
 
+        public void InitializeControl()
+        {
+            gScoutControl.ThrustCW = 0;
+            gScoutControl.ThrustForward = 0;
+            gScoutControl.ThrustRight = 0;
+            gScoutControl.ShieldOn = false;
+            gScoutControl.MinerOn = false;
+            gScoutControl.EnergyExtractorOn = false;
+        }
+
         #endregion
+
+
     }
 }

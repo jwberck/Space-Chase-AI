@@ -83,9 +83,6 @@ namespace SpaceChaseLib
     #endregion
 
 
-
-
-
     public struct pose
     {
         public double X;
@@ -103,10 +100,12 @@ namespace SpaceChaseLib
         // "g" represents global variables
 
         // TODO: Add your global variables here
-        ScoutControl gScoutControl = new ScoutControl();
-        pose mScoutPose = new pose();
-        ScoutStatus mScoutStatus = new ScoutStatus();
-        double TwoPI = Math.PI * 2;
+        private ScoutControl gScoutControl = new ScoutControl();
+        private GPS gGPS = new GPS();
+        private ScoutStatus gScoutStatus = new ScoutStatus();
+        private GameStatus gGameStatus = new GameStatus();
+        public double TwoPI = Math.PI * 2;
+
 
 
         PID gRotationalPID = new PID();
@@ -118,10 +117,7 @@ namespace SpaceChaseLib
 
         report mReportObject = new report();
 
-        pose mBlackHolePose = new pose();
-
-        pose[] mBlackHoles = new pose[11];
-        SensorInfo[] mBlackholesSensor = new SensorInfo[11];
+        
 
         pose mAvoidThrust = new pose();
 
@@ -168,7 +164,7 @@ namespace SpaceChaseLib
         {
             string strMessage;
 
-            strMessage = "Ship X :" + mScoutPose.X.ToString() + "\nShip Y : " + mScoutPose.Y.ToString() + "\nShip A : " + mScoutPose.angle.ToString() + "\nBH X = " + mBlackHolePose.X.ToString() + "\nBH Y = " + mBlackHolePose.Y.ToString();
+            strMessage = "Ship X :" + gScoutPose.X.ToString() + "\nShip Y : " + gScoutPose.Y.ToString() + "\nShip A : " + gScoutPose.angle.ToString() + "\nBH X = " + mBlackHolePose.X.ToString() + "\nBH Y = " + mBlackHolePose.Y.ToString();
 
             return strMessage;
         }
@@ -239,6 +235,7 @@ namespace SpaceChaseLib
         //      You may used this information as you wish.
         public void GameStatus(GameStatus gs)
         {
+            gGameStatus = gs;
         }
 
 
@@ -250,7 +247,7 @@ namespace SpaceChaseLib
         //      You will need the status to control the ship
         public void ProvideScoutStatus(ScoutStatus ss)
         {
-            mScoutStatus = ss;
+            gScoutStatus = ss;
         }
 
         // Method      : Sensors
@@ -273,53 +270,8 @@ namespace SpaceChaseLib
         //              }
         public void Sensors(List<SensorInfo> Tachyon, List<SensorInfo> Mass, List<SensorInfo> RF, List<SensorInfo> Visual, List<SensorInfo> Radar)
         {
-            int numberOfItems;
-
-            numberOfItems = RF.Count;
-
-            double BHrange = 0;
-            double BHangle = 0;
-
-            for (int i = 0; i < 11; i++)
-            {
-                mBlackholesSensor[i].angle = 0;
-                mBlackholesSensor[i].range = 0;
-            }
-            for (int i = 0; i < numberOfItems; i++)
-            {
-                if (RF[i].objectType == ObjectType.BlackHole)
-                {
-                    BHangle = RF[i].angle;
-                    mBlackholesSensor[RF[i].objectID].angle = RF[i].angle;
-                }
-            }
-
-            foreach (SensorInfo m in Mass)
-            {
-                if (m.objectType == ObjectType.BlackHole)
-                {
-                    BHrange = m.range;
-                    mBlackholesSensor[m.objectID].range = m.range;
-                }
-            }
-
-            for (int i = 0; i < 11; i++)
-            {
-                mBlackHolePose = GetCoords(mScoutPose.X, mScoutPose.Y, mScoutPose.angle, mBlackholesSensor[i].angle, mBlackholesSensor[i].range);
-                if ((mBlackHolePose.X != mScoutPose.X) && (mBlackHolePose.Y != mScoutPose.Y))
-                {
-                    mBlackHoles[i] = mBlackHolePose;
-                    mBlackHoles[i].angle = mBlackholesSensor[i].angle; //store local angle. Only accurate during this current cycle
-                }
-            }
-
-            if (BHrange != 0)
-            {
-                mBlackHolePose = GetCoords(mScoutPose.X, mScoutPose.Y, mScoutPose.angle, BHangle, BHrange);
-                mReportObject.X = mBlackHolePose.X;
-                mReportObject.Y = mBlackHolePose.Y;
-                //  reportObject.complete = true;
-            }
+            Sensor lSensor = new Sensor(Tachyon, Mass, RF, Visual, Radar);
+            gGPS.UpdateForeignObjectCoords(lSensor.mRelativeForeignObject);
         }
 
         // Method      : StartLevel
@@ -362,11 +314,8 @@ namespace SpaceChaseLib
         public void StartTask(int task)
         {
             InitializeControl();
-
-            mScoutPose.X = 0;
-            mScoutPose.Y = 0;
-            mScoutPose.angle = 0;
-
+            gGPS.InitializeScoutPose();
+            
             gRotationalPID.InitializePID(-3, 3, 10000, 0, 0);
             gXPID.InitializePID(-1.5, 1.5, 10, 0, 0);
             gYPID.InitializePID(-3, 3, 10, 0, 0);
@@ -393,11 +342,6 @@ namespace SpaceChaseLib
             mReportObject.X = 0;
             mReportObject.Y = 0;
 
-            for (int i = 0; i < 11; i++)
-            {
-                mBlackHoles[i].X = 0;
-                mBlackHoles[i].Y = 0;
-            }
         }
 
         // Method      : EndTask
@@ -420,7 +364,8 @@ namespace SpaceChaseLib
         //      It give the task level.
         public void InTask(int task)
         {
-            TrackShip(mScoutStatus,mScoutPose);
+
+            gGPS.TrackShip(gScoutStatus);
             mAvoidThrust.X = 0;
             mAvoidThrust.Y = 0;
             avoidObject();
@@ -484,9 +429,6 @@ namespace SpaceChaseLib
         }
 
         #endregion
-
-        #region PIDMethods
-
 
         private class PID
         {
@@ -567,47 +509,207 @@ namespace SpaceChaseLib
             
         }
 
-       
-
-        #endregion
 
         #region PriavteMethods
 
-        private void TrackShip(ScoutStatus aScoutStatus, pose aScoutPose)             // Use the current velocities to track the ship
+        /// <summary>
+        /// An object in space that is represented in a global mapping.
+        /// </summary>
+        private class GlobalForeignObject
         {
-            double dx, dy, ndx, ndy;
+            public int mObjectID;
+            public ObjectType mTypeOfObject;
 
+            public double mXCoord = 0;
+            public double mYCoord = 0;
 
-            dy = aScoutStatus.averageVelocityForward * aScoutStatus.deltaTime;  // Distance moved forward since last time (use average velocity)
-            dx = aScoutStatus.averageVelocityRight * aScoutStatus.deltaTime;    // Distance moved sideways since last time
+            /// <summary>
+            /// Converts the Relative Foreign Object to a Global Foreign Object using the Scouts current position.
+            /// If the range has not been detected, then a placeholder is inserted in order to make use of the GFO.
+            /// </summary>
+            /// <param name="aRFO"></param>
+            /// <param name="aScoutPose"></param>
+            /// <returns>The converted GFO</returns>
+            public static GlobalForeignObject Convert (RelativeForeignObject aRFO, pose aScoutPose)
+            {
+                GlobalForeignObject lGFO = new GlobalForeignObject();
 
-            aScoutPose.angle += aScoutStatus.currentVelocityAngularCW * (aScoutStatus.deltaTime / 2);  // Get half of the angle rotated through since last time
-                                                                                                       // (This is the average angle and is used to make the tracking more accurate)
-            aScoutPose.angle = aScoutPose.angle % TwoPI;          // ensure to angle is between -2*PI ans 2*PI
+                lGFO.mObjectID = aRFO.mObjectID;
+                lGFO.mTypeOfObject = aRFO.mTypeOfObject;
+                if (!aRFO.FoundRange)
+                {
+                    switch (aRFO.mTypeOfObject)
+                    {
+                        case ObjectType.Distortion:  
+                        case ObjectType.Asteroid:
+                            aRFO.Range = 650;
+                            break;
+                        case ObjectType.BlackHole:
+                            aRFO.Range = 550;
+                            break;
+                        default:
+                            throw new InvalidOperationException();
+                    }
+                }
+                    
 
-            ndx = dx * Math.Cos(aScoutPose.angle) + dy * Math.Sin(aScoutPose.angle);  // Rotate the forward and sideways distances to world coords
-            ndy = -dx * Math.Sin(aScoutPose.angle) + dy * Math.Cos(aScoutPose.angle);
-            aScoutPose.X += ndx;                             // Update the scouts coordinates
-            aScoutPose.Y += ndy;
+                lGFO.mXCoord = aRFO.Range * Math.Sin(aScoutPose.angle + aRFO.Angle) + aScoutPose.X;
+                lGFO.mYCoord = aRFO.Range * Math.Cos(aScoutPose.angle + aRFO.Angle) + aScoutPose.Y;
 
-            aScoutPose.angle += aScoutStatus.currentVelocityAngularCW * (aScoutStatus.deltaTime / 2);    // Get the last half of the angle rotated through
-            aScoutPose.angle = aScoutPose.angle % TwoPI;          // ensure to angle is between -2*PI ans 2*PI
+                return lGFO;
+            }
 
         }
+
+        /// <summary>
+        /// An object in space that is represented relative to the ship.
+        /// </summary>
+        private class RelativeForeignObject
+        {
+            public int mObjectID;
+            public ObjectType mTypeOfObject;
+
+            private int mInfoCount = 0;
+
+            private double mAngle;
+            public double Angle
+            {
+                set { mAngle = value; }
+                get { return mAngle; }
+            }
+
+            private double mRange;
+            public double Range
+            {
+                set { mInfoCount++; mRange = value; }
+                get { return mRange; }
+            }
+
+            private bool mfoundRange = false;
+
+            public bool FoundRange
+            {
+                get { return mfoundRange; }
+            }
+
+
+
+        }
+
+        /// <summary>
+        /// The class that handles all mapping.
+        /// </summary>
+        private class GPS
+        {
+            public pose mScoutPose = new pose();
+            Dictionary<int, GlobalForeignObject> mGlobalForeignObjects = new Dictionary<int, GlobalForeignObject>();
+
+            public void InitializeScoutPose()
+            {
+                mScoutPose.X = 0;
+                mScoutPose.Y = 0;
+                mScoutPose.angle = 0;
+            }
+
+
+            public void UpdateForeignObjectCoords(Dictionary<int,RelativeForeignObject> aRelativeForeignObjects)
+            {
+                foreach(KeyValuePair<int,RelativeForeignObject> iKeyValue in aRelativeForeignObjects)
+                {
+                    mGlobalForeignObjects[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                }
+            }
+
+            /// <summary>
+            /// This method was created by the professor. 
+            /// </summary>
+            /// <param name="aScoutStatus"></param>
+            public void TrackShip(ScoutStatus aScoutStatus)             // Use the current velocities to track the ship
+            {
+                double dx, dy, ndx, ndy;
+
+
+                dy = aScoutStatus.averageVelocityForward * aScoutStatus.deltaTime;  // Distance moved forward since last time (use average velocity)
+                dx = aScoutStatus.averageVelocityRight * aScoutStatus.deltaTime;    // Distance moved sideways since last time
+
+                mScoutPose.angle += aScoutStatus.currentVelocityAngularCW * (aScoutStatus.deltaTime / 2);  // Get half of the angle rotated through since last time
+                                                                                                           // (This is the average angle and is used to make the tracking more accurate)
+                mScoutPose.angle = mScoutPose.angle % Math.PI * 2;          // ensure to angle is between -2*PI ans 2*PI
+
+                ndx = dx * Math.Cos(mScoutPose.angle) + dy * Math.Sin(mScoutPose.angle);  // Rotate the forward and sideways distances to world coords
+                ndy = -dx * Math.Sin(mScoutPose.angle) + dy * Math.Cos(mScoutPose.angle);
+                mScoutPose.X += ndx;                             // Update the scouts coordinates
+                mScoutPose.Y += ndy;
+
+                mScoutPose.angle += aScoutStatus.currentVelocityAngularCW * (aScoutStatus.deltaTime / 2);    // Get the last half of the angle rotated through
+                mScoutPose.angle = mScoutPose.angle % Math.PI * 2;          // ensure to angle is between -2*PI ans 2*PI
+
+            }
+        }
+
+
+        private class Sensor
+        {
+
+            private Dictionary<int, RelativeForeignObject> RelativeForeignObject = new Dictionary<int, RelativeForeignObject>();
+            
+            public Dictionary<int, RelativeForeignObject> mRelativeForeignObject
+            {
+                get
+                {
+                    return RelativeForeignObject;
+                }
+            }
+
+
+
+            public Sensor(List<SensorInfo> Tachyon, List<SensorInfo> Mass, List<SensorInfo> RF, List<SensorInfo> Visual, List<SensorInfo> Radar)
+            {
+                /*
+                foreach(SensorInfo iTachyon in Tachyon)
+                {
+
+                    mRelativeForeignObject[iTachyon.objectID].mRange = iTachyon.range;
+                    mRelativeForeignObject[iTachyon.objectID].mTypeOfObject = iTachyon.objectType;
+                }
+                */
+
+                //only these are needed for black hole location.
+
+                foreach(SensorInfo iMass in Mass)
+                {
+                    //could cause problems. This code might not work for a key that doesn't exist
+                    mRelativeForeignObject[iMass.objectID].Range = iMass.range;
+                    mRelativeForeignObject[iMass.objectID].mTypeOfObject = iMass.objectType;
+
+                }
+
+                foreach(SensorInfo iRF in RF)
+                {
+                    mRelativeForeignObject[iRF.objectID].Angle = iRF.angle;
+                    mRelativeForeignObject[iRF.objectID].mTypeOfObject = iRF.objectType;
+                }
+            }
+        }
+
+
+
+
+        
 
 
         private void MoveToTarget(double targetX, double targetY, double maxVelocity)
         {
             double deltaX, deltaY;
 
-            deltaX = targetX - mScoutPose.X;
-            deltaY = targetY - mScoutPose.Y;
+            deltaX = targetX - gGPS.mScoutPose.X;
+            deltaY = targetY - gGPS.mScoutPose.Y;
 
             double angleToFace = Math.Atan2(deltaX, deltaY);
 
             angleToFace = angleToFace % TwoPI;
 
-            double anglebetweenFaceAndCurrentHeading = angleToFace - mScoutPose.angle;
+            double anglebetweenFaceAndCurrentHeading = angleToFace - gGPS.mScoutPose.angle;
 
             anglebetweenFaceAndCurrentHeading = anglebetweenFaceAndCurrentHeading % TwoPI;
 
@@ -623,7 +725,7 @@ namespace SpaceChaseLib
             if (requiredCWVel < -0.005)
                 requiredCWVel = -0.005;
 
-            gScoutControl.ThrustCW = gRotationalPID.CalculateThrust(requiredCWVel, mScoutStatus.currentVelocityAngularCW);
+            gScoutControl.ThrustCW = gRotationalPID.CalculateThrust(requiredCWVel, gScoutStatus.currentVelocityAngularCW);
 
 
 
@@ -638,12 +740,12 @@ namespace SpaceChaseLib
             requiredXVel = newdX / 200;     // The required velocity is slower as the scout gets closer to the destination
             requiredYVel = newdY / 200;
 
-            gScoutControl.ThrustRight = gXPID.CalculateThrust(requiredXVel, mScoutStatus.currentVelocityRight);
+            gScoutControl.ThrustRight = gXPID.CalculateThrust(requiredXVel, gScoutStatus.currentVelocityRight);
 
             if (requiredYVel > maxVelocity)
                 requiredYVel = maxVelocity;
 
-            gScoutControl.ThrustForward = gYPID.CalculateThrust(requiredYVel, mScoutStatus.currentVelocityForward);
+            gScoutControl.ThrustForward = gYPID.CalculateThrust(requiredYVel, gScoutStatus.currentVelocityForward);
         }
 
         private void MoveToWaypoint(double MaxVel)
@@ -655,8 +757,8 @@ namespace SpaceChaseLib
 
             double deltaX, deltaY;
 
-            deltaX = targetPose.X - mScoutPose.X;
-            deltaY = targetPose.Y - mScoutPose.Y;
+            deltaX = targetPose.X - gGPS.mScoutPose.X;
+            deltaY = targetPose.Y - gGPS.mScoutPose.Y;
 
             double dist;
 
@@ -675,17 +777,7 @@ namespace SpaceChaseLib
             MoveToTarget(targetPose.X, targetPose.Y, MaxVel);
         }
 
-        private pose GetCoords(double sX, double sY, double sA, double angle, double range)
-        {
-            pose coords;
 
-            coords.angle = 0;
-
-            coords.X = range * Math.Sin(sA + angle) + sX;
-            coords.Y = range * Math.Cos(sA + angle) + sY;
-
-            return (coords);
-        }
         //
         private void InTask1()
         {
@@ -726,7 +818,7 @@ namespace SpaceChaseLib
             {
                 if ((mBlackHoles[i].X != 0) && (mBlackHoles[i].Y != 0)) // check for blank or no blackhole
                 {
-                    range = Math.Sqrt(Math.Pow(mScoutPose.X - mBlackHoles[i].X, 2) + Math.Pow(mScoutPose.Y - mBlackHoles[i].Y, 2));
+                    range = Math.Sqrt(Math.Pow(gScoutPose.X - mBlackHoles[i].X, 2) + Math.Pow(gScoutPose.Y - mBlackHoles[i].Y, 2));
                     if (range < 200)
                     {
                         thrust = 600 / range;

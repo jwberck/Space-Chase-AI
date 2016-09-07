@@ -204,7 +204,7 @@ namespace SpaceChaseLib
         public void Sensors(List<SensorInfo> Tachyon, List<SensorInfo> Mass, List<SensorInfo> RF, List<SensorInfo> Visual, List<SensorInfo> Radar)
         {
             Sensor lSensor = new Sensor(Tachyon, Mass, RF, Visual, Radar);
-            gBrain.mMap.UpdateForeignObjectCoords(lSensor.mRelativeForeignObject);
+            gBrain.mMap.UpdateMap(lSensor.mRelativeForeignObject);
         }
 
         public String ScreenMessage()
@@ -362,7 +362,8 @@ namespace SpaceChaseLib
             public int mObjectID;
             public ObjectType mTypeOfObject;
 
-            private int mInfoCount = 0;
+            private bool mFoundRange = false;
+
 
             private double mAngle;
             public double Angle
@@ -374,15 +375,14 @@ namespace SpaceChaseLib
             private double mRange;
             public double Range
             {
-                set { mInfoCount++; mRange = value; }
+                set { mFoundRange = true; mRange = value; }
                 get { return mRange; }
             }
 
-            private bool mfoundRange = false;
 
             public bool FoundRange
             {
-                get { return mfoundRange; }
+                get { return mFoundRange; }
             }
         }
 
@@ -505,6 +505,30 @@ namespace SpaceChaseLib
             }
             private void InTask1()
             {
+                bool lIsRoutingToBlackHole = false;
+
+                if(mMap.mBlackHoles.Count == 1)
+                {
+                    pose lPose = new pose();
+                    lPose.X = mMap.mBlackHoles.First().Value.mXCoord;
+                    lPose.Y = mMap.mBlackHoles.First().Value.mYCoord;
+
+                    if (!lIsRoutingToBlackHole)
+                    {
+                        mNavigation.AddWaypointToFront(lPose);
+                    }
+                    
+                    if (lIsRoutingToBlackHole && mMap.CalculateDistance(lPose.X,lPose.Y) < 200)
+                    {
+                        mReportObject.X = lPose.X;
+                        mReportObject.Y = lPose.Y;
+                        mReportObject.complete = true;
+                        return;
+                    }
+
+
+                }
+
                 mNavigation.MoveToWaypoint(0.4);
 
 
@@ -512,6 +536,8 @@ namespace SpaceChaseLib
                 mScoutControl.ShieldOn = false;
                 mScoutControl.EnergyExtractorOn = false;
             }
+
+
 
 
             public void EndTask(int task, bool IsScoutAlive)
@@ -550,13 +576,6 @@ namespace SpaceChaseLib
             /// <returns></returns>
             public report Report()
             {
-                
-                report r = new report();    // set up a report structure to return
-
-                r.complete = false;         // Set to true when the report is ready
-                r.X = 0;                    // Set to the blackhole's X coord
-                r.Y = 0;                    // Set to the blackhole's Y coord
-
                 return mReportObject;
             }
 
@@ -572,6 +591,9 @@ namespace SpaceChaseLib
                 mMap.ResetMap();
                 mNavigation.ResetNavigation();
 
+                mReportObject.X = 0;
+                mReportObject.Y = 0;
+                mReportObject.complete = false;
             }
 
 
@@ -633,14 +655,11 @@ namespace SpaceChaseLib
         {
             public pose mScoutPose = new pose();
 
-            Dictionary<int, GlobalForeignObject> mBlackHoles = new Dictionary<int, GlobalForeignObject>();
-            Dictionary<int, GlobalForeignObject> mAsteroids = new Dictionary<int, GlobalForeignObject>();
-            Dictionary<int, GlobalForeignObject> mDistortions = new Dictionary<int, GlobalForeignObject>();
-            Dictionary<int, GlobalForeignObject> mCombatDrones = new Dictionary<int, GlobalForeignObject>();
-            Dictionary<int, GlobalForeignObject> mFactoryDrones = new Dictionary<int, GlobalForeignObject>();
-
-
-
+            public Dictionary<int, GlobalForeignObject> mBlackHoles = new Dictionary<int, GlobalForeignObject>();
+            public Dictionary<int, GlobalForeignObject> mAsteroids = new Dictionary<int, GlobalForeignObject>();
+            public Dictionary<int, GlobalForeignObject> mDistortions = new Dictionary<int, GlobalForeignObject>();
+            public Dictionary<int, GlobalForeignObject> mCombatDrones = new Dictionary<int, GlobalForeignObject>();
+            public Dictionary<int, GlobalForeignObject> mFactoryDrones = new Dictionary<int, GlobalForeignObject>();
 
 
             public void ResetMap()
@@ -648,6 +667,7 @@ namespace SpaceChaseLib
                 mScoutPose.X = 0;
                 mScoutPose.Y = 0;
                 mScoutPose.angle = 0;
+
                 mBlackHoles.Clear();
                 mAsteroids.Clear();
                 mDistortions.Clear();
@@ -659,7 +679,7 @@ namespace SpaceChaseLib
             /// Updates the map every frame.
             /// </summary>
             /// <param name="aRelativeForeignObjects"></param>
-            public void UpdateForeignObjectCoords(Dictionary<int, RelativeForeignObject> aRelativeForeignObjects)
+            public void UpdateMap(Dictionary<int, RelativeForeignObject> aRelativeForeignObjects)
             {
                 foreach (KeyValuePair<int, RelativeForeignObject> iKeyValue in aRelativeForeignObjects)
                 {
@@ -683,6 +703,14 @@ namespace SpaceChaseLib
 
                     }
                 }
+            }
+
+
+            public double CalculateDistance(double targetX, double targetY)
+            {
+                double deltaX = targetX - mScoutPose.X;
+                double deltaY = targetY - mScoutPose.Y;
+                return Math.Sqrt(deltaX * deltaX + deltaY * deltaY); //Distance to waypoint
             }
 
             /// <summary>
@@ -834,6 +862,21 @@ namespace SpaceChaseLib
 
             }
 
+
+            public void AddWaypointsToFront(List<pose> aWaypoints)
+            {
+                for(int i = aWaypoints.Count - 1; i>=0; i--)
+                {
+                    AddWaypointToFront(aWaypoints[i]);
+                }
+            }
+
+
+            public void AddWaypointToFront(pose aWaypoint)
+            {
+                mPath.Insert(0, aWaypoint);
+            }
+
             public void MoveToWaypoint(double MaxVel)
             {
                 pose targetPose = new pose();
@@ -867,11 +910,10 @@ namespace SpaceChaseLib
 
             private void MoveToTarget(double targetX, double targetY, double maxVelocity)
             {
-                double deltaX, deltaY;
                 double TwoPI = Math.PI * 2;
 
-                deltaX = targetX - mMap.mScoutPose.X;
-                deltaY = targetY - mMap.mScoutPose.Y;
+                double deltaX = targetX - mMap.mScoutPose.X;
+                double deltaY = targetY - mMap.mScoutPose.Y;
 
                 double angleToFace = Math.Atan2(deltaX, deltaY);
 

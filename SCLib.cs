@@ -7,7 +7,6 @@ using System.IO;
 namespace SpaceChaseLib
 
 {
-    #region Structs
 
     #region UnchangableStructs
 
@@ -89,7 +88,7 @@ namespace SpaceChaseLib
         public double Y;
         public double angle;
     }
-    #endregion
+
 
     public class SCLib
     {
@@ -155,7 +154,20 @@ namespace SpaceChaseLib
         //      in the SCParameters.txt file.
         public ScoutControl ThrustersAndControl()
         {
-            return gBrain.mScoutControl;
+            ScoutControl lScoutControl = new ScoutControl();
+
+            lScoutControl.ThrustForward = gBrain.mScoutThrustControls.ThrustForward;
+            lScoutControl.ThrustRight = gBrain.mScoutThrustControls.ThrustRight;
+            lScoutControl.ThrustCW = gBrain.mScoutThrustControls.ThrustCW;
+
+            lScoutControl.MinerOn = gBrain.mScoutActionControls.MinerOn;
+            lScoutControl.ShieldOn = gBrain.mScoutActionControls.ShieldOn;
+            lScoutControl.EnergyExtractorOn = gBrain.mScoutActionControls.EnergyExtractorOn;
+
+            return lScoutControl;
+
+
+
         }
 
         // Method      : GameStatus
@@ -179,8 +191,26 @@ namespace SpaceChaseLib
         //      You will need the status to control the ship
         public void ProvideScoutStatus(ScoutStatus ss)
         {
-            gBrain.mScoutStatus = ss;
+
+
+            //Convert the struct to a class so that it can be used as a reference type
+            gBrain.mScoutState.deltaTime = ss.deltaTime;
+            gBrain.mScoutState.deltaVelocityForward = ss.deltaVelocityForward;
+            gBrain.mScoutState.deltaVelocityRight = ss.deltaVelocityRight;
+            gBrain.mScoutState.deltaVelocityAngularCW = ss.deltaVelocityAngularCW;
+            gBrain.mScoutState.currentVelocityForward = ss.currentVelocityForward;
+            gBrain.mScoutState.currentVelocityRight = ss.currentVelocityRight;
+            gBrain.mScoutState.currentVelocityAngularCW = ss.currentVelocityAngularCW;
+            gBrain.mScoutState.averageVelocityForward = ss.averageVelocityForward;
+            gBrain.mScoutState.averageVelocityRight = ss.averageVelocityRight;
+            gBrain.mScoutState.averageVelocityAngularCW = ss.averageVelocityAngularCW;
+            gBrain.mScoutState.shieldEnergy = ss.shieldEnergy;
+            gBrain.mScoutState.hullIntegrity = ss.hullIntegrity;
+
+
         }
+
+
 
 
         // Method      : Sensors
@@ -453,17 +483,48 @@ namespace SpaceChaseLib
 
         #endregion
 
+        public class ScoutThrustControls
+        {
+            public double ThrustForward = 0;    // This is the forward thrust (-ve thrust is rearward)
+            public double ThrustRight = 0;      // This is sideways, or strafing thrust (+ve i to the right of the scout)
+            public double ThrustCW = 0;         // This is angular/rotational thrust (+ve is clockwise) 
+        }
+
+        public class ScoutActionControls
+        {
+            public bool ShieldOn;           // This is set to true if you want the shields to be on
+            public bool EnergyExtractorOn;  // This is set to true if you want the Energy Extractor to be operating
+            public bool MinerOn;            // This is set to true if you want the Miner to be operating
+        }
+
+
+        public class ScoutState
+        {
+            public double deltaTime;        // Time since this was last called
+            public double deltaVelocityForward; // change in forward velocity (+ve forward)
+            public double deltaVelocityRight;   // change in sideways velocity (+ve right)
+            public double deltaVelocityAngularCW;   // change in rotational velocity (+ve is clockwise)
+            public double currentVelocityForward;   // current forward velocity (+ve forward)
+            public double currentVelocityRight;     // current sideways velocity (+ve right)
+            public double currentVelocityAngularCW; // current rotational velocity (+ve is clockwise)
+            public double averageVelocityForward;   // average forward velocity (+ve forward)
+            public double averageVelocityRight;     // average sideways velocity (+ve right)
+            public double averageVelocityAngularCW; // average rotational velocity (+ve is clockwise)
+            public double shieldEnergy;             // current level of shield energy (0.0 to 1.0)
+            public double hullIntegrity;            // current level of hull integrity (0.0 to 1.0)
+        }
 
 
         private class Brain
         {
             //World Status, updated every frame
-            public ScoutStatus mScoutStatus = new ScoutStatus();
+            public ScoutState mScoutState = new ScoutState();
             public GameStatus mGameStatus = new GameStatus();
             public Map mMap = new Map();
 
             //Scout Control, outputs every frame
-            public ScoutControl mScoutControl = new ScoutControl();
+            public ScoutThrustControls mScoutThrustControls = new ScoutThrustControls();
+            public ScoutActionControls mScoutActionControls = new ScoutActionControls();
 
 
             public Navigation mNavigation = new Navigation();
@@ -478,7 +539,7 @@ namespace SpaceChaseLib
             /// </summary>
             public void InitialiseGame()
             {
-                mNavigation.Initialize(mMap, mScoutControl, mScoutStatus);
+                mNavigation.Initialize(mMap, mScoutThrustControls, mScoutState);
             }
 
 
@@ -506,7 +567,7 @@ namespace SpaceChaseLib
             public void InTask(int task)
             {
 
-                mMap.TrackShip(mScoutStatus);
+                mMap.TrackShip(mScoutState);
                 mAvoidThrust.X = 0;
                 mAvoidThrust.Y = 0;
                 //avoidObject();
@@ -546,9 +607,9 @@ namespace SpaceChaseLib
                 mNavigation.MoveToWaypoint(0.4);
 
 
-                mScoutControl.MinerOn = false;
-                mScoutControl.ShieldOn = false;
-                mScoutControl.EnergyExtractorOn = false;
+                mScoutActionControls.MinerOn = false;
+                mScoutActionControls.ShieldOn = false;
+                mScoutActionControls.EnergyExtractorOn = false;
             }
 
 
@@ -595,12 +656,13 @@ namespace SpaceChaseLib
 
             public void Reset()
             {
-                mScoutControl.ThrustCW = 0;
-                mScoutControl.ThrustForward = 0;
-                mScoutControl.ThrustRight = 0;
-                mScoutControl.ShieldOn = false;
-                mScoutControl.MinerOn = false;
-                mScoutControl.EnergyExtractorOn = false;
+                mScoutThrustControls.ThrustCW = 0;
+                mScoutThrustControls.ThrustForward = 0;
+                mScoutThrustControls.ThrustRight = 0;
+
+                mScoutActionControls.ShieldOn = false;
+                mScoutActionControls.MinerOn = false;
+                mScoutActionControls.EnergyExtractorOn = false;
 
                 mMap.ResetMap();
                 mNavigation.ResetNavigation();
@@ -661,157 +723,11 @@ namespace SpaceChaseLib
         }
 
 
-
-        /// <summary>
-        /// The class that handles all mapping.
-        /// </summary>
-        public class Map
-        {
-            public pose mScoutPose = new pose();
-
-            public Dictionary<int, GlobalForeignObject> mBlackHoles = new Dictionary<int, GlobalForeignObject>();
-            public Dictionary<int, GlobalForeignObject> mAsteroids = new Dictionary<int, GlobalForeignObject>();
-            public Dictionary<int, GlobalForeignObject> mDistortions = new Dictionary<int, GlobalForeignObject>();
-            public Dictionary<int, GlobalForeignObject> mCombatDrones = new Dictionary<int, GlobalForeignObject>();
-            public Dictionary<int, GlobalForeignObject> mFactoryDrones = new Dictionary<int, GlobalForeignObject>();
-
-
-            public void ResetMap()
-            {
-                mScoutPose.X = 0;
-                mScoutPose.Y = 0;
-                mScoutPose.angle = 0;
-
-                mBlackHoles.Clear();
-                mAsteroids.Clear();
-                mDistortions.Clear();
-                mCombatDrones.Clear();
-                mFactoryDrones.Clear();
-            }
-
-            /// <summary>
-            /// Updates the map every frame.
-            /// </summary>
-            /// <param name="aRelativeForeignObjects"></param>
-            public void UpdateMap(Dictionary<int, RelativeForeignObject> aRelativeForeignObjects)
-            {
-                foreach (KeyValuePair<int, RelativeForeignObject> iKeyValue in aRelativeForeignObjects)
-                {
-                    switch (iKeyValue.Value.mTypeOfObject)
-                    {
-                        case ObjectType.BlackHole:
-                            mBlackHoles[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
-                            break;
-                        case ObjectType.Asteroid:
-                            mAsteroids[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
-                            break;
-                        case ObjectType.Distortion:
-                            mDistortions[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
-                            break;
-                        case ObjectType.CombatDrone:
-                            mCombatDrones[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
-                            break;
-                        case ObjectType.Factory:
-                            mFactoryDrones[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
-                            break;
-
-                    }
-                }
-            }
-
-
-            public double CalculateDistance(double targetX, double targetY)
-            {
-                double deltaX = targetX - mScoutPose.X;
-                double deltaY = targetY - mScoutPose.Y;
-                return Math.Sqrt(deltaX * deltaX + deltaY * deltaY); //Distance to waypoint
-            }
-
-            /// <summary>
-            /// This method was created by the professor. 
-            /// </summary>
-            /// <param name="aScoutStatus"></param>
-            public void TrackShip(ScoutStatus aScoutStatus)             // Use the current velocities to track the ship
-            {
-                double dx, dy, ndx, ndy;
-
-
-                dy = aScoutStatus.averageVelocityForward * aScoutStatus.deltaTime;  // Distance moved forward since last time (use average velocity)
-                dx = aScoutStatus.averageVelocityRight * aScoutStatus.deltaTime;    // Distance moved sideways since last time
-
-                mScoutPose.angle += aScoutStatus.currentVelocityAngularCW * (aScoutStatus.deltaTime / 2);  // Get half of the angle rotated through since last time
-                                                                                                           // (This is the average angle and is used to make the tracking more accurate)
-                mScoutPose.angle = mScoutPose.angle % Math.PI * 2;          // ensure to angle is between -2*PI ans 2*PI
-
-                ndx = dx * Math.Cos(mScoutPose.angle) + dy * Math.Sin(mScoutPose.angle);  // Rotate the forward and sideways distances to world coords
-                ndy = -dx * Math.Sin(mScoutPose.angle) + dy * Math.Cos(mScoutPose.angle);
-                mScoutPose.X += ndx;                             // Update the scouts coordinates
-                mScoutPose.Y += ndy;
-
-                mScoutPose.angle += aScoutStatus.currentVelocityAngularCW * (aScoutStatus.deltaTime / 2);    // Get the last half of the angle rotated through
-                mScoutPose.angle = mScoutPose.angle % Math.PI * 2;          // ensure to angle is between -2*PI ans 2*PI
-
-            }
-        }
-
-
-        /// <summary>
-        /// An object in space that is represented in a global mapping.
-        /// </summary>
-        public class GlobalForeignObject
-        {
-            public int mObjectID;
-            public ObjectType mTypeOfObject;
-
-            public double mXCoord = 0;
-            public double mYCoord = 0;
-
-            /// <summary>
-            /// Converts the Relative Foreign Object to a Global Foreign Object using the Scouts current position.
-            /// If the range has not been detected, then a placeholder is inserted in order to make use of the GFO.
-            /// </summary>
-            /// <param name="aRFO"></param>
-            /// <param name="aScoutPose"></param>
-            /// <returns>The converted GFO</returns>
-            public static GlobalForeignObject Convert(RelativeForeignObject aRFO, pose aScoutPose)
-            {
-                GlobalForeignObject lGFO = new GlobalForeignObject();
-
-                lGFO.mObjectID = aRFO.mObjectID;
-                lGFO.mTypeOfObject = aRFO.mTypeOfObject;
-                if (!aRFO.FoundRange)
-                {
-                    switch (aRFO.mTypeOfObject)
-                    {
-                        case ObjectType.Distortion:
-                        case ObjectType.Asteroid:
-                            aRFO.Range = 650;
-                            break;
-                        case ObjectType.BlackHole:
-                            aRFO.Range = 550;
-                            break;
-                        default:
-                            throw new InvalidOperationException();
-                    }
-                }
-
-
-                lGFO.mXCoord = aRFO.Range * Math.Sin(aScoutPose.angle + aRFO.Angle) + aScoutPose.X;
-                lGFO.mYCoord = aRFO.Range * Math.Cos(aScoutPose.angle + aRFO.Angle) + aScoutPose.Y;
-
-                return lGFO;
-            }
-
-        }
-
-
-
-
         public class Navigation
         {
             Map mMap;
-            ScoutControl mScoutControl;
-            ScoutStatus mScoutStatus;
+            ScoutThrustControls mScoutThrustControls;
+            ScoutState mScoutState;
 
             public PID mXPID = new PID();
             public PID mYPID = new PID();
@@ -827,11 +743,11 @@ namespace SpaceChaseLib
             /// <param name="aMap"></param>
             /// <param name="aScoutControl"></param>
             /// <param name="aScoutStatus"></param>
-            public void Initialize(Map aMap, ScoutControl aScoutControl, ScoutStatus aScoutStatus)
+            public void Initialize(Map aMap, ScoutThrustControls aScoutThrustControls, ScoutState aScoutState)
             {
                 mMap = aMap;
-                mScoutControl = aScoutControl;
-                mScoutStatus = aScoutStatus;
+                mScoutThrustControls = aScoutThrustControls;
+                mScoutState = aScoutState;
             }
 
             /// <summary>
@@ -959,7 +875,7 @@ namespace SpaceChaseLib
                 else if (requiredCWVel < -0.005)
                     requiredCWVel = -0.005;
 
-                mScoutControl.ThrustCW = mRotationalPID.CalculateThrust(requiredCWVel, mScoutStatus.currentVelocityAngularCW);
+                mScoutThrustControls.ThrustCW = mRotationalPID.CalculateThrust(requiredCWVel, mScoutState.currentVelocityAngularCW);
 
 
 
@@ -974,15 +890,162 @@ namespace SpaceChaseLib
                 requiredXVel = newdX / 200;     // The required velocity is slower as the scout gets closer to the destination
                 requiredYVel = newdY / 200;
 
-                mScoutControl.ThrustRight = mXPID.CalculateThrust(requiredXVel, mScoutStatus.currentVelocityRight);
+                mScoutThrustControls.ThrustRight = mXPID.CalculateThrust(requiredXVel, mScoutState.currentVelocityRight);
 
                 if (requiredYVel > maxVelocity)
                     requiredYVel = maxVelocity;
 
-                mScoutControl.ThrustForward = mYPID.CalculateThrust(requiredYVel, mScoutStatus.currentVelocityForward);
+                mScoutThrustControls.ThrustForward = mYPID.CalculateThrust(requiredYVel, mScoutState.currentVelocityForward);
             }
 
         }
+
+
+
+        /// <summary>
+        /// The class that handles all mapping.
+        /// </summary>
+        public class Map
+        {
+            public pose mScoutPose = new pose();
+
+            public Dictionary<int, GlobalForeignObject> mBlackHoles = new Dictionary<int, GlobalForeignObject>();
+            public Dictionary<int, GlobalForeignObject> mAsteroids = new Dictionary<int, GlobalForeignObject>();
+            public Dictionary<int, GlobalForeignObject> mDistortions = new Dictionary<int, GlobalForeignObject>();
+            public Dictionary<int, GlobalForeignObject> mCombatDrones = new Dictionary<int, GlobalForeignObject>();
+            public Dictionary<int, GlobalForeignObject> mFactoryDrones = new Dictionary<int, GlobalForeignObject>();
+
+
+            public void ResetMap()
+            {
+                mScoutPose.X = 0;
+                mScoutPose.Y = 0;
+                mScoutPose.angle = 0;
+
+                mBlackHoles.Clear();
+                mAsteroids.Clear();
+                mDistortions.Clear();
+                mCombatDrones.Clear();
+                mFactoryDrones.Clear();
+            }
+
+            /// <summary>
+            /// Updates the map every frame.
+            /// </summary>
+            /// <param name="aRelativeForeignObjects"></param>
+            public void UpdateMap(Dictionary<int, RelativeForeignObject> aRelativeForeignObjects)
+            {
+                foreach (KeyValuePair<int, RelativeForeignObject> iKeyValue in aRelativeForeignObjects)
+                {
+                    switch (iKeyValue.Value.mTypeOfObject)
+                    {
+                        case ObjectType.BlackHole:
+                            mBlackHoles[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+                        case ObjectType.Asteroid:
+                            mAsteroids[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+                        case ObjectType.Distortion:
+                            mDistortions[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+                        case ObjectType.CombatDrone:
+                            mCombatDrones[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+                        case ObjectType.Factory:
+                            mFactoryDrones[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+
+                    }
+                }
+            }
+
+
+            public double CalculateDistance(double targetX, double targetY)
+            {
+                double deltaX = targetX - mScoutPose.X;
+                double deltaY = targetY - mScoutPose.Y;
+                return Math.Sqrt(deltaX * deltaX + deltaY * deltaY); //Distance to waypoint
+            }
+
+            /// <summary>
+            /// This method was created by the professor. 
+            /// </summary>
+            /// <param name="aScoutState"></param>
+            public void TrackShip(ScoutState aScoutState)             // Use the current velocities to track the ship
+            {
+                double dx, dy, ndx, ndy;
+
+
+                dy = aScoutState.averageVelocityForward * aScoutState.deltaTime;  // Distance moved forward since last time (use average velocity)
+                dx = aScoutState.averageVelocityRight * aScoutState.deltaTime;    // Distance moved sideways since last time
+
+                mScoutPose.angle += aScoutState.currentVelocityAngularCW * (aScoutState.deltaTime / 2);  // Get half of the angle rotated through since last time
+                                                                                                         // (This is the average angle and is used to make the tracking more accurate)
+                mScoutPose.angle = mScoutPose.angle % Math.PI * 2;          // ensure to angle is between -2*PI ans 2*PI
+
+                ndx = dx * Math.Cos(mScoutPose.angle) + dy * Math.Sin(mScoutPose.angle);  // Rotate the forward and sideways distances to world coords
+                ndy = -dx * Math.Sin(mScoutPose.angle) + dy * Math.Cos(mScoutPose.angle);
+                mScoutPose.X += ndx;                             // Update the scouts coordinates
+                mScoutPose.Y += ndy;
+
+                mScoutPose.angle += aScoutState.currentVelocityAngularCW * (aScoutState.deltaTime / 2);    // Get the last half of the angle rotated through
+                mScoutPose.angle = mScoutPose.angle % Math.PI * 2;          // ensure to angle is between -2*PI ans 2*PI
+
+            }
+        }
+
+
+        /// <summary>
+        /// An object in space that is represented in a global mapping.
+        /// </summary>
+        public class GlobalForeignObject
+        {
+            public int mObjectID;
+            public ObjectType mTypeOfObject;
+
+            public double mXCoord = 0;
+            public double mYCoord = 0;
+
+            /// <summary>
+            /// Converts the Relative Foreign Object to a Global Foreign Object using the Scouts current position.
+            /// If the range has not been detected, then a placeholder is inserted in order to make use of the GFO.
+            /// </summary>
+            /// <param name="aRFO"></param>
+            /// <param name="aScoutPose"></param>
+            /// <returns>The converted GFO</returns>
+            public static GlobalForeignObject Convert(RelativeForeignObject aRFO, pose aScoutPose)
+            {
+                GlobalForeignObject lGFO = new GlobalForeignObject();
+
+                lGFO.mObjectID = aRFO.mObjectID;
+                lGFO.mTypeOfObject = aRFO.mTypeOfObject;
+                if (!aRFO.FoundRange)
+                {
+                    switch (aRFO.mTypeOfObject)
+                    {
+                        case ObjectType.Distortion:
+                        case ObjectType.Asteroid:
+                            aRFO.Range = 650;
+                            break;
+                        case ObjectType.BlackHole:
+                            aRFO.Range = 550;
+                            break;
+                        default:
+                            throw new InvalidOperationException();
+                    }
+                }
+
+
+                lGFO.mXCoord = aRFO.Range * Math.Sin(aScoutPose.angle + aRFO.Angle) + aScoutPose.X;
+                lGFO.mYCoord = aRFO.Range * Math.Cos(aScoutPose.angle + aRFO.Angle) + aScoutPose.Y;
+
+                return lGFO;
+            }
+
+        }
+
+
+
 
 
 

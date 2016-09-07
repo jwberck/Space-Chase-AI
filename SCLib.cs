@@ -459,7 +459,6 @@ namespace SpaceChaseLib
             report mReportObject = new report();
 
 
-            #region Methods called Externally.
 
             /// <summary>
             /// Sets up references, bad practice. Attempt to seperate if possible.
@@ -473,14 +472,20 @@ namespace SpaceChaseLib
 
             public void StartTask(int task)
             {
-
-                InitializeControl();
-                mMap.ResetMap();
-                mNavigation.ResetNavigation(task);
-
+                Reset();
                 mReportObject.complete = false;
                 mReportObject.X = 0;
                 mReportObject.Y = 0;
+
+                switch (task)
+                {
+                    case 1:
+                    case 2:
+                    case 3:
+                        mNavigation.CreateSpiralPath();
+                        break;
+                    
+                }
 
             }
 
@@ -490,13 +495,22 @@ namespace SpaceChaseLib
                 mMap.TrackShip(mScoutStatus);
                 mAvoidThrust.X = 0;
                 mAvoidThrust.Y = 0;
-                avoidObject();
+                //avoidObject();
                 switch (task)
                 {
                     case 1:
                         InTask1();
                         break;
                 }
+            }
+            private void InTask1()
+            {
+                mNavigation.MoveToWaypoint(0.4);
+
+
+                mScoutControl.MinerOn = false;
+                mScoutControl.ShieldOn = false;
+                mScoutControl.EnergyExtractorOn = false;
             }
 
 
@@ -524,7 +538,8 @@ namespace SpaceChaseLib
             {
                 string strMessage;
 
-                strMessage = "Ship X :" + gScoutPose.X.ToString() + "\nShip Y : " + gScoutPose.Y.ToString() + "\nShip A : " + gScoutPose.angle.ToString() + "\nBH X = " + mBlackHolePose.X.ToString() + "\nBH Y = " + mBlackHolePose.Y.ToString();
+                strMessage = "Ship X :" + mMap.mScoutPose.X.ToString() + "\nShip Y : " + mMap.mScoutPose.Y.ToString() + "\nShip A : " + mMap.mScoutPose.angle.ToString(); 
+                //strMessage += "\nBH X = " + mBlackHolePose.X.ToString() + "\nBH Y = " + mBlackHolePose.Y.ToString();
 
                 return strMessage;
             }
@@ -535,6 +550,7 @@ namespace SpaceChaseLib
             /// <returns></returns>
             public report Report()
             {
+                
                 report r = new report();    // set up a report structure to return
 
                 r.complete = false;         // Set to true when the report is ready
@@ -544,9 +560,7 @@ namespace SpaceChaseLib
                 return mReportObject;
             }
 
-            #endregion
-
-            public void InitializeControl()
+            public void Reset()
             {
                 mScoutControl.ThrustCW = 0;
                 mScoutControl.ThrustForward = 0;
@@ -556,20 +570,13 @@ namespace SpaceChaseLib
                 mScoutControl.EnergyExtractorOn = false;
 
                 mMap.ResetMap();
+                mNavigation.ResetNavigation();
 
             }
-            private void InTask1()
-            {
-                mNavigation.MoveToWaypoint(0.4);
-
-
-                mScoutControl.MinerOn = false;
-                mScoutControl.ShieldOn = false;
-                mScoutControl.EnergyExtractorOn = false;
-            }
 
 
 
+            /*
             private void avoidObject()
             {
                 double range = 0;
@@ -592,7 +599,7 @@ namespace SpaceChaseLib
                 }
             }
 
-
+            */
 
             private pose RotateAboutZ(double x, double y, double angle) // Rotate a vector clockwise through a given angle
             {
@@ -613,7 +620,7 @@ namespace SpaceChaseLib
                 return p;
             }
 
-
+            
 
         }
 
@@ -625,14 +632,27 @@ namespace SpaceChaseLib
         public class Map
         {
             public pose mScoutPose = new pose();
-            Dictionary<int, GlobalForeignObject> mGlobalForeignObjects = new Dictionary<int, GlobalForeignObject>();
+
+            Dictionary<int, GlobalForeignObject> mBlackHoles = new Dictionary<int, GlobalForeignObject>();
+            Dictionary<int, GlobalForeignObject> mAsteroids = new Dictionary<int, GlobalForeignObject>();
+            Dictionary<int, GlobalForeignObject> mDistortions = new Dictionary<int, GlobalForeignObject>();
+            Dictionary<int, GlobalForeignObject> mCombatDrones = new Dictionary<int, GlobalForeignObject>();
+            Dictionary<int, GlobalForeignObject> mFactoryDrones = new Dictionary<int, GlobalForeignObject>();
+
+
+
+
 
             public void ResetMap()
             {
                 mScoutPose.X = 0;
                 mScoutPose.Y = 0;
                 mScoutPose.angle = 0;
-                mGlobalForeignObjects.Clear();
+                mBlackHoles.Clear();
+                mAsteroids.Clear();
+                mDistortions.Clear();
+                mCombatDrones.Clear();
+                mFactoryDrones.Clear();
             }
 
             /// <summary>
@@ -643,7 +663,25 @@ namespace SpaceChaseLib
             {
                 foreach (KeyValuePair<int, RelativeForeignObject> iKeyValue in aRelativeForeignObjects)
                 {
-                    mGlobalForeignObjects[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                    switch (iKeyValue.Value.mTypeOfObject)
+                    {
+                        case ObjectType.BlackHole:
+                            mBlackHoles[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+                        case ObjectType.Asteroid:
+                            mAsteroids[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+                        case ObjectType.Distortion:
+                            mDistortions[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+                        case ObjectType.CombatDrone:
+                            mCombatDrones[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+                        case ObjectType.Factory:
+                            mFactoryDrones[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+
+                    }
                 }
             }
 
@@ -759,13 +797,13 @@ namespace SpaceChaseLib
             /// </summary>
             /// <param name="aMap"></param>
             /// <param name="aScoutControl"></param>
-            public void ResetNavigation(int task)
+            public void ResetNavigation()
             {
-
 
                 mRotationalPID.Initialize(-3, 3, 10000, 0, 0);
                 mXPID.Initialize(-1.5, 1.5, 10, 0, 0);
                 mYPID.Initialize(-3, 3, 10, 0, 0);
+                mPath.Clear();
             }
 
 

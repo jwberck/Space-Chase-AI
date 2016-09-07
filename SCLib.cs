@@ -280,7 +280,7 @@ namespace SpaceChaseLib
         // This method is call once at the start of a task and it give the task number.
         public void StartTask(int task)
         {
-            gBrain.InTask(task);
+            gBrain.StartTask(task);
         }
 
         // Method      : EndTask
@@ -470,6 +470,7 @@ namespace SpaceChaseLib
             pose mAvoidThrust = new pose();
             report mReportObject = new report();
 
+            bool mIsRoutingToBlackHole = false;
 
 
             /// <summary>
@@ -488,6 +489,7 @@ namespace SpaceChaseLib
                 mReportObject.complete = false;
                 mReportObject.X = 0;
                 mReportObject.Y = 0;
+
 
                 switch (task)
                 {
@@ -517,7 +519,6 @@ namespace SpaceChaseLib
             }
             private void InTask1()
             {
-                bool lIsRoutingToBlackHole = false;
 
                 if (mMap.mBlackHoles.Count == 1)
                 {
@@ -525,12 +526,13 @@ namespace SpaceChaseLib
                     lPose.X = mMap.mBlackHoles.First().Value.mXCoord;
                     lPose.Y = mMap.mBlackHoles.First().Value.mYCoord;
 
-                    if (!lIsRoutingToBlackHole)
+                    if (!mIsRoutingToBlackHole)
                     {
                         mNavigation.AddWaypointToFront(lPose);
+                        mIsRoutingToBlackHole = true;
                     }
 
-                    if (lIsRoutingToBlackHole && mMap.CalculateDistance(lPose.X, lPose.Y) < 200)
+                    if (mIsRoutingToBlackHole && mMap.CalculateDistance(lPose.X, lPose.Y) < 200)
                     {
                         mReportObject.X = lPose.X;
                         mReportObject.Y = lPose.Y;
@@ -849,7 +851,7 @@ namespace SpaceChaseLib
 
             public void CreateSpiralPath()
             {
-                for (int i = 0; i < 7; i++)
+                for (int i = 0; i < 8; i++)
                 {
                     pose lPose = new pose();
                     mPath.Add(lPose);
@@ -892,35 +894,42 @@ namespace SpaceChaseLib
             public void MoveToWaypoint(double MaxVel)
             {
                 //Makes sure that momevemnt is not attempted until a path exists.
-                if (mPath.Count == 0) return;
-
-                pose targetPose = new pose();
-
-                targetPose.X = mPath[0].X;
-                targetPose.Y = mPath[0].Y;
-
-                double deltaX, deltaY;
-
-                deltaX = targetPose.X - mMap.mScoutPose.X;
-                deltaY = targetPose.Y - mMap.mScoutPose.Y;
-
-                double dist;
-
-                dist = Math.Sqrt(Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2));
-
-                //if close enough, then go to the next waypoint
-                if (dist < 50)
+                try
                 {
-                    if (mPath.Count == 0)
-                    {
-                        mPathDone = true;
-                    }
-                    mPath.RemoveAt(0);
+                    pose targetPose = new pose();
 
                     targetPose.X = mPath[0].X;
                     targetPose.Y = mPath[0].Y;
+
+                    double deltaX, deltaY;
+
+                    deltaX = targetPose.X - mMap.mScoutPose.X;
+                    deltaY = targetPose.Y - mMap.mScoutPose.Y;
+
+                    double dist;
+
+                    dist = Math.Sqrt(Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2));
+
+                    //if close enough, then go to the next waypoint
+                    if (dist < 50)
+                    {
+                        if (mPath.Count == 0)
+                        {
+                            mPathDone = true;
+                        }
+                        mPath.RemoveAt(0);
+
+                        targetPose.X = mPath[0].X;
+                        targetPose.Y = mPath[0].Y;
+                    }
+                    MoveToTarget(targetPose.X, targetPose.Y, MaxVel);
                 }
-                MoveToTarget(targetPose.X, targetPose.Y, MaxVel);
+                catch (Exception ex)
+                {
+                    Console.Write(ex.Message);
+                }
+
+
             }
 
             private void MoveToTarget(double targetX, double targetY, double maxVelocity)
@@ -940,14 +949,14 @@ namespace SpaceChaseLib
 
                 if (anglebetweenFaceAndCurrentHeading < -Math.PI)
                     anglebetweenFaceAndCurrentHeading += TwoPI;
-                if (anglebetweenFaceAndCurrentHeading > Math.PI)
+                else if (anglebetweenFaceAndCurrentHeading > Math.PI)
                     anglebetweenFaceAndCurrentHeading -= TwoPI;
 
                 double requiredCWVel = anglebetweenFaceAndCurrentHeading / 64;
 
                 if (requiredCWVel > 0.005f)
                     requiredCWVel = 0.005f;
-                if (requiredCWVel < -0.005)
+                else if (requiredCWVel < -0.005)
                     requiredCWVel = -0.005;
 
                 mScoutControl.ThrustCW = mRotationalPID.CalculateThrust(requiredCWVel, mScoutStatus.currentVelocityAngularCW);

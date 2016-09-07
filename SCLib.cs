@@ -97,7 +97,7 @@ namespace SpaceChaseLib
         #region Never touch again
 
         private Brain gBrain = new Brain();
-        
+
 
 
 
@@ -340,16 +340,28 @@ namespace SpaceChaseLib
 
                 foreach (SensorInfo iMass in Mass)
                 {
-                    //could cause problems. This code might not work for a key that doesn't exist
-                    mRelativeForeignObject[iMass.objectID].Range = iMass.range;
-                    mRelativeForeignObject[iMass.objectID].mTypeOfObject = iMass.objectType;
+                    if (!mRelativeForeignObject.ContainsKey(iMass.objectID))
+                    {
+                        mRelativeForeignObject[iMass.objectID] = new RelativeForeignObject();
+                        mRelativeForeignObject[iMass.objectID].mTypeOfObject = iMass.objectType;
+                        mRelativeForeignObject[iMass.objectID].mObjectID = iMass.objectID;
 
+                    }
+
+                    mRelativeForeignObject[iMass.objectID].Range = iMass.range;
                 }
 
                 foreach (SensorInfo iRF in RF)
                 {
+                    if (!mRelativeForeignObject.ContainsKey(iRF.objectID))
+                    {
+                        mRelativeForeignObject[iRF.objectID] = new RelativeForeignObject();
+                        mRelativeForeignObject[iRF.objectID].mTypeOfObject = iRF.objectType;
+                        mRelativeForeignObject[iRF.objectID].mObjectID = iRF.objectID;
+
+                    }
+
                     mRelativeForeignObject[iRF.objectID].Angle = iRF.angle;
-                    mRelativeForeignObject[iRF.objectID].mTypeOfObject = iRF.objectType;
                 }
             }
         }
@@ -484,7 +496,7 @@ namespace SpaceChaseLib
                     case 3:
                         mNavigation.CreateSpiralPath();
                         break;
-                    
+
                 }
 
             }
@@ -507,7 +519,7 @@ namespace SpaceChaseLib
             {
                 bool lIsRoutingToBlackHole = false;
 
-                if(mMap.mBlackHoles.Count == 1)
+                if (mMap.mBlackHoles.Count == 1)
                 {
                     pose lPose = new pose();
                     lPose.X = mMap.mBlackHoles.First().Value.mXCoord;
@@ -517,8 +529,8 @@ namespace SpaceChaseLib
                     {
                         mNavigation.AddWaypointToFront(lPose);
                     }
-                    
-                    if (lIsRoutingToBlackHole && mMap.CalculateDistance(lPose.X,lPose.Y) < 200)
+
+                    if (lIsRoutingToBlackHole && mMap.CalculateDistance(lPose.X, lPose.Y) < 200)
                     {
                         mReportObject.X = lPose.X;
                         mReportObject.Y = lPose.Y;
@@ -564,7 +576,7 @@ namespace SpaceChaseLib
             {
                 string strMessage;
 
-                strMessage = "Ship X :" + mMap.mScoutPose.X.ToString() + "\nShip Y : " + mMap.mScoutPose.Y.ToString() + "\nShip A : " + mMap.mScoutPose.angle.ToString(); 
+                strMessage = "Ship X :" + mMap.mScoutPose.X.ToString() + "\nShip Y : " + mMap.mScoutPose.Y.ToString() + "\nShip A : " + mMap.mScoutPose.angle.ToString();
                 //strMessage += "\nBH X = " + mBlackHolePose.X.ToString() + "\nBH Y = " + mBlackHolePose.Y.ToString();
 
                 return strMessage;
@@ -642,7 +654,7 @@ namespace SpaceChaseLib
                 return p;
             }
 
-            
+
 
         }
 
@@ -865,7 +877,7 @@ namespace SpaceChaseLib
 
             public void AddWaypointsToFront(List<pose> aWaypoints)
             {
-                for(int i = aWaypoints.Count - 1; i>=0; i--)
+                for (int i = aWaypoints.Count - 1; i >= 0; i--)
                 {
                     AddWaypointToFront(aWaypoints[i]);
                 }
@@ -879,6 +891,9 @@ namespace SpaceChaseLib
 
             public void MoveToWaypoint(double MaxVel)
             {
+                //Makes sure that momevemnt is not attempted until a path exists.
+                if (mPath.Count == 0) return;
+
                 pose targetPose = new pose();
 
                 targetPose.X = mPath[0].X;

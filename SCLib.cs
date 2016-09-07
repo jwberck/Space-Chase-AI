@@ -93,27 +93,16 @@ namespace SpaceChaseLib
 
     public class SCLib
     {
-        //Unchangable Globals
 
+        #region Never touch again
 
-        // "m" represents member variables
-        // "g" represents global variables
-
-        // TODO: Add your global variables here
-        public ScoutControl gScoutControl = new ScoutControl();
-        public Map gMap = new Map();
-        public Navigation gNavigation = new Navigation();
-        public ScoutStatus gScoutStatus = new ScoutStatus();
-        public GameStatus gGameStatus = new GameStatus();
-        report mReportObject = new report();
-        pose mAvoidThrust = new pose();
-
-        private StreamWriter sw; //This holds the file to log data to in CSV format
-
+        private Brain gBrain = new Brain();
         
 
 
-        #region InterfaceOutputs
+
+
+
 
 
         // Method      : StudentDetails
@@ -149,14 +138,7 @@ namespace SpaceChaseLib
         //          Ship X : -1834.679834
         //          Ship Y : 352.6738307
         //      The escape character "\n" seen before the "Ship Y : " will cause a new line to be added.
-        public String ScreenMessage()
-        {
-            string strMessage;
 
-            strMessage = "Ship X :" + gScoutPose.X.ToString() + "\nShip Y : " + gScoutPose.Y.ToString() + "\nShip A : " + gScoutPose.angle.ToString() + "\nBH X = " + mBlackHolePose.X.ToString() + "\nBH Y = " + mBlackHolePose.Y.ToString();
-
-            return strMessage;
-        }
 
         // Method      : ThrustersAndControl
         // Input       : na
@@ -173,47 +155,8 @@ namespace SpaceChaseLib
         //      in the SCParameters.txt file.
         public ScoutControl ThrustersAndControl()
         {
-            return gScoutControl;
+            return gBrain.mScoutControl;
         }
-
-
-        // Method      : Report
-        // Input       : na
-        // Output      : r (type: report)
-        // Description :
-        //      This method is call 60 time per second.
-        //      It is used during task 1 which required you to find and report
-        //      the location of the blackhole. Once the blackhole has been found,
-        //      set the X and Y coords of the blackhole and set complete to true.
-        //      It is also used in task 2 to report an asteroid. Set complete to true
-        //      when an asteroid has been detected. For this X and Y are not required.
-        public report Report()
-        {
-            report r = new report();    // set up a report structure to return
-
-            r.complete = false;         // Set to true when the report is ready
-            r.X = 0;                    // Set to the blackhole's X coord
-            r.Y = 0;                    // Set to the blackhole's Y coord
-
-            return mReportObject;
-        }
-
-
-        #endregion
-
-        #region InterfaceInputs
-
-        // Method      : InitialiseGame
-        // Input       : na
-        // Output      : na
-        // Description :
-        //      This method is called once when the program is first run 
-        //      and can be use to initialise any variables if required
-        public void InitialiseGame()
-        {
-        }
-
-
 
         // Method      : GameStatus
         // Input       : gs (type:GameStatus)
@@ -224,7 +167,7 @@ namespace SpaceChaseLib
         //      You may used this information as you wish.
         public void GameStatus(GameStatus gs)
         {
-            gGameStatus = gs;
+            gBrain.mGameStatus = gs;
         }
 
 
@@ -236,8 +179,9 @@ namespace SpaceChaseLib
         //      You will need the status to control the ship
         public void ProvideScoutStatus(ScoutStatus ss)
         {
-            gScoutStatus = ss;
+            gBrain.mScoutStatus = ss;
         }
+
 
         // Method      : Sensors
         // Input       : Tachyon, Mass, RF,Visual,Radar (type:List<SenorInfo> - this is an array of variable length)
@@ -260,7 +204,40 @@ namespace SpaceChaseLib
         public void Sensors(List<SensorInfo> Tachyon, List<SensorInfo> Mass, List<SensorInfo> RF, List<SensorInfo> Visual, List<SensorInfo> Radar)
         {
             Sensor lSensor = new Sensor(Tachyon, Mass, RF, Visual, Radar);
-            gMap.UpdateForeignObjectCoords(lSensor.mRelativeForeignObject);
+            gBrain.mMap.UpdateForeignObjectCoords(lSensor.mRelativeForeignObject);
+        }
+
+        public String ScreenMessage()
+        {
+            return gBrain.ScreenMessage();
+        }
+
+
+        // Method      : Report
+        // Input       : na
+        // Output      : r (type: report)
+        // Description :
+        //      This method is call 60 time per second.
+        //      It is used during task 1 which required you to find and report
+        //      the location of the blackhole. Once the blackhole has been found,
+        //      set the X and Y coords of the blackhole and set complete to true.
+        //      It is also used in task 2 to report an asteroid. Set complete to true
+        //      when an asteroid has been detected. For this X and Y are not required.
+        public report Report()
+        {
+            return gBrain.Report();
+        }
+
+
+        // Method      : InitialiseGame
+        // Input       : na
+        // Output      : na
+        // Description :
+        //      This method is called once when the program is first run 
+        //      and can be use to initialise any variables if required
+        public void InitialiseGame()
+        {
+            gBrain.InitialiseGame();
         }
 
         // Method      : StartLevel
@@ -270,7 +247,7 @@ namespace SpaceChaseLib
         // This method is call once at the start of a game level and it give the games level.
         public void StartLevel(int levelNumber)
         {
-
+            gBrain.StartLevel(levelNumber);
         }
 
         // Method      : EndLevel
@@ -281,7 +258,7 @@ namespace SpaceChaseLib
         //      It give the games level and if the scout survived the level.
         public void EndLevel(int levelNumber, bool IsScoutAlive)
         {
-
+            gBrain.EndLevel(levelNumber, IsScoutAlive);
         }
 
 
@@ -293,6 +270,7 @@ namespace SpaceChaseLib
         //      It give the games level.
         public void InLevel(int levelNumber)
         {
+            gBrain.InLevel(levelNumber);
         }
 
         // Method      : StartTask
@@ -302,14 +280,7 @@ namespace SpaceChaseLib
         // This method is call once at the start of a task and it give the task number.
         public void StartTask(int task)
         {
-            InitializeControl();
-            gMap.InitializeScoutPose();
-            gNavigation.Initialize(task, gMap,gScoutControl, gScoutStatus);
-            
-            mReportObject.complete = false;
-            mReportObject.X = 0;
-            mReportObject.Y = 0;
-
+            gBrain.InTask(task);
         }
 
         // Method      : EndTask
@@ -320,7 +291,7 @@ namespace SpaceChaseLib
         //      It give the task number and if the scout survived the task.
         public void EndTask(int task, bool IsScoutAlive)
         {
-
+            gBrain.EndTask(task, IsScoutAlive);
         }
 
 
@@ -333,32 +304,10 @@ namespace SpaceChaseLib
         public void InTask(int task)
         {
 
-            gMap.TrackShip(gScoutStatus);
-            mAvoidThrust.X = 0;
-            mAvoidThrust.Y = 0;
-            avoidObject();
-            switch (task)
-            {
-                case 1:
-                    InTask1();
-                    break;
-            }
+            gBrain.InTask(task);
         }
 
         #endregion
-
-
-
-
-        public void InitializeControl()
-        {
-            gScoutControl.ThrustCW = 0;
-            gScoutControl.ThrustForward = 0;
-            gScoutControl.ThrustRight = 0;
-            gScoutControl.ShieldOn = false;
-            gScoutControl.MinerOn = false;
-            gScoutControl.EnergyExtractorOn = false;
-        }
 
 
         public class Sensor
@@ -439,6 +388,236 @@ namespace SpaceChaseLib
 
 
 
+        private StreamWriter sw; //This holds the file to log data to in CSV format
+
+        #region FileCreation
+
+        // Method      : CreateLogFile
+        // Input       : na
+        // Output      : na
+        // Description :
+        //      This method can be used to start a log file.
+        //      This creates a text file and then writes the first few line of the file.
+        //      If you put commas between the variable it will be a Comma Seperated File (CSV)
+        //      and can be open in Excel later on.
+        private void CreateLogFile()
+        {
+            sw = File.CreateText("MyLog.csv"); // Open log file
+            sw.WriteLine("My Name");    // Write first line of log (usually name of log)
+            sw.WriteLine("");           // Write a blank line
+            sw.WriteLine("Velocity Forward,Velocity Sideways,Velocity Rotational");   // Write second line (usually column headings)
+
+        }
+
+        // Method      : LogData
+        // Input       : na
+        // Output      : na
+        // Description :
+        //      This method can be used to file data to a log file created in CreateLogFile.
+        //      By putting commas between the variables you will get a CSV file.
+        //      All types of data have the .ToString() member to convert the type to a string
+        public void LogData()
+        {
+            //    sw.WriteLine(velForward.ToString() + "," +velRight.ToString() + "," + velRotation.ToString());  // Place variable that match the heading in CreateLogFile
+        }
+
+        // Method      : CloseLogFile
+        // Input       : na
+        // Output      : na
+        // Description :
+        //      This method will close the file opened in CreateLogFile.
+        //      Use it when you have finished logging data.
+        public void CloseLogFile()
+        {
+            try
+            {
+                sw.Close();
+                sw.Dispose();
+            }
+            catch
+            {
+            }
+        }
+
+        #endregion
+
+
+
+        private class Brain
+        {
+            //World Status, updated every frame
+            public ScoutStatus mScoutStatus = new ScoutStatus();
+            public GameStatus mGameStatus = new GameStatus();
+            public Map mMap = new Map();
+
+            //Scout Control, outputs every frame
+            public ScoutControl mScoutControl = new ScoutControl();
+
+
+            public Navigation mNavigation = new Navigation();
+            pose mAvoidThrust = new pose();
+            report mReportObject = new report();
+
+
+            #region Methods called Externally.
+
+            /// <summary>
+            /// Sets up references, bad practice. Attempt to seperate if possible.
+            /// </summary>
+            public void InitialiseGame()
+            {
+                mNavigation.Initialize(mMap, mScoutControl, mScoutStatus);
+            }
+
+
+
+            public void StartTask(int task)
+            {
+
+                InitializeControl();
+                mMap.ResetMap();
+                mNavigation.ResetNavigation(task);
+
+                mReportObject.complete = false;
+                mReportObject.X = 0;
+                mReportObject.Y = 0;
+
+            }
+
+            public void InTask(int task)
+            {
+
+                mMap.TrackShip(mScoutStatus);
+                mAvoidThrust.X = 0;
+                mAvoidThrust.Y = 0;
+                avoidObject();
+                switch (task)
+                {
+                    case 1:
+                        InTask1();
+                        break;
+                }
+            }
+
+
+            public void EndTask(int task, bool IsScoutAlive)
+            {
+
+            }
+
+
+
+            public void StartLevel(int levelNumber)
+            {
+
+            }
+
+            public void InLevel(int levelNumber)
+            {
+            }
+
+            public void EndLevel(int levelNumber, bool IsScoutAlive)
+            {
+
+            }
+            public String ScreenMessage()
+            {
+                string strMessage;
+
+                strMessage = "Ship X :" + gScoutPose.X.ToString() + "\nShip Y : " + gScoutPose.Y.ToString() + "\nShip A : " + gScoutPose.angle.ToString() + "\nBH X = " + mBlackHolePose.X.ToString() + "\nBH Y = " + mBlackHolePose.Y.ToString();
+
+                return strMessage;
+            }
+
+            /// <summary>
+            /// Used for tasks 1 and 2.
+            /// </summary>
+            /// <returns></returns>
+            public report Report()
+            {
+                report r = new report();    // set up a report structure to return
+
+                r.complete = false;         // Set to true when the report is ready
+                r.X = 0;                    // Set to the blackhole's X coord
+                r.Y = 0;                    // Set to the blackhole's Y coord
+
+                return mReportObject;
+            }
+
+            #endregion
+
+            public void InitializeControl()
+            {
+                mScoutControl.ThrustCW = 0;
+                mScoutControl.ThrustForward = 0;
+                mScoutControl.ThrustRight = 0;
+                mScoutControl.ShieldOn = false;
+                mScoutControl.MinerOn = false;
+                mScoutControl.EnergyExtractorOn = false;
+
+                mMap.ResetMap();
+
+            }
+            private void InTask1()
+            {
+                mNavigation.MoveToWaypoint(0.4);
+
+
+                mScoutControl.MinerOn = false;
+                mScoutControl.ShieldOn = false;
+                mScoutControl.EnergyExtractorOn = false;
+            }
+
+
+
+            private void avoidObject()
+            {
+                double range = 0;
+                double thrust = 0;
+                pose athrust = new pose();
+
+                for (int i = 0; i < 11; i++)
+                {
+                    if ((mBlackHoles[i].X != 0) && (mBlackHoles[i].Y != 0)) // check for blank or no blackhole
+                    {
+                        range = Math.Sqrt(Math.Pow(gScoutPose.X - mBlackHoles[i].X, 2) + Math.Pow(gScoutPose.Y - mBlackHoles[i].Y, 2));
+                        if (range < 200)
+                        {
+                            thrust = 600 / range;
+                            athrust = RotateAboutZ(0, thrust, mBlackHoles[i].angle - Math.PI);
+                            mAvoidThrust.X += athrust.X;
+                            mAvoidThrust.Y += athrust.Y;
+                        }
+                    }
+                }
+            }
+
+
+
+            private pose RotateAboutZ(double x, double y, double angle) // Rotate a vector clockwise through a given angle
+            {
+                pose p = new pose();
+                p.angle = angle;
+                p.X = x * Math.Cos(angle) + y * Math.Sin(angle);
+                p.Y = -x * Math.Sin(angle) + y * Math.Cos(angle);
+
+                /*
+                 * The following is the rotation for rotating through an anti-clockwise direction and is found in most text books
+                 * X' = xCosA - ySinA
+                 * Y' = xSinA + yCosA
+                 * 
+                 * But we are rotating in a clockwise direction so the rotational equations become;
+                 * X' = xCosA + ySinA
+                 * Y' = -xCosA + ySinA
+                */
+                return p;
+            }
+
+
+
+        }
+
+
 
         /// <summary>
         /// The class that handles all mapping.
@@ -448,17 +627,21 @@ namespace SpaceChaseLib
             public pose mScoutPose = new pose();
             Dictionary<int, GlobalForeignObject> mGlobalForeignObjects = new Dictionary<int, GlobalForeignObject>();
 
-            public void InitializeScoutPose()
+            public void ResetMap()
             {
                 mScoutPose.X = 0;
                 mScoutPose.Y = 0;
                 mScoutPose.angle = 0;
+                mGlobalForeignObjects.Clear();
             }
 
-
-            public void UpdateForeignObjectCoords(Dictionary<int,RelativeForeignObject> aRelativeForeignObjects)
+            /// <summary>
+            /// Updates the map every frame.
+            /// </summary>
+            /// <param name="aRelativeForeignObjects"></param>
+            public void UpdateForeignObjectCoords(Dictionary<int, RelativeForeignObject> aRelativeForeignObjects)
             {
-                foreach(KeyValuePair<int,RelativeForeignObject> iKeyValue in aRelativeForeignObjects)
+                foreach (KeyValuePair<int, RelativeForeignObject> iKeyValue in aRelativeForeignObjects)
                 {
                     mGlobalForeignObjects[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
                 }
@@ -541,16 +724,8 @@ namespace SpaceChaseLib
 
         }
 
-        
-        private void InTask1()
-        {
-            gNavigation.MoveToWaypoint(0.4);
 
 
-            gScoutControl.MinerOn = false;
-            gScoutControl.ShieldOn = false;
-            gScoutControl.EnergyExtractorOn = false;
-        }
 
         public class Navigation
         {
@@ -567,29 +742,41 @@ namespace SpaceChaseLib
             bool mPathDone = false;
 
             /// <summary>
-            /// Initialized Navigation by setting the PID values and setting references to the map and ScoutControl.
+            /// Called once at the begining of the game to establish references
             /// </summary>
             /// <param name="aMap"></param>
             /// <param name="aScoutControl"></param>
-            public void Initialize(int task, Map aMap, ScoutControl aScoutControl, ScoutStatus aScoutStatus)
+            /// <param name="aScoutStatus"></param>
+            public void Initialize(Map aMap, ScoutControl aScoutControl, ScoutStatus aScoutStatus)
             {
                 mMap = aMap;
                 mScoutControl = aScoutControl;
                 mScoutStatus = aScoutStatus;
+            }
+
+            /// <summary>
+            /// Resets Navigation by setting the PID values.
+            /// </summary>
+            /// <param name="aMap"></param>
+            /// <param name="aScoutControl"></param>
+            public void ResetNavigation(int task)
+            {
+
 
                 mRotationalPID.Initialize(-3, 3, 10000, 0, 0);
                 mXPID.Initialize(-1.5, 1.5, 10, 0, 0);
                 mYPID.Initialize(-3, 3, 10, 0, 0);
             }
 
+
             public void CreateSpiralPath()
             {
-                for(int i = 0; i<7; i++)
+                for (int i = 0; i < 7; i++)
                 {
                     pose lPose = new pose();
                     mPath.Add(lPose);
                 }
-                
+
                 mPath[0].X = 500;        // Generate a path of waypoints
                 mPath[0].Y = 500;
                 mPath[1].X = 500;
@@ -606,7 +793,7 @@ namespace SpaceChaseLib
                 mPath[6].Y = -1000;
                 mPath[7].X = -1000;
                 mPath[7].Y = 1000;
-                
+
             }
 
             public void MoveToWaypoint(double MaxVel)
@@ -628,7 +815,7 @@ namespace SpaceChaseLib
                 //if close enough, then go to the next waypoint
                 if (dist < 50)
                 {
-                    if(mPath.Count == 0)
+                    if (mPath.Count == 0)
                     {
                         mPathDone = true;
                     }
@@ -694,7 +881,7 @@ namespace SpaceChaseLib
         }
 
 
-       
+
 
 
         public class PID
@@ -772,101 +959,5 @@ namespace SpaceChaseLib
                 return lThrustPerscription;
             }
         }
-
-
-/*
-        private void avoidObject()
-        {
-            double range = 0;
-            double thrust = 0;
-            pose athrust = new pose();
-
-            for (int i = 0; i < 11; i++)
-            {
-                if ((mBlackHoles[i].X != 0) && (mBlackHoles[i].Y != 0)) // check for blank or no blackhole
-                {
-                    range = Math.Sqrt(Math.Pow(gScoutPose.X - mBlackHoles[i].X, 2) + Math.Pow(gScoutPose.Y - mBlackHoles[i].Y, 2));
-                    if (range < 200)
-                    {
-                        thrust = 600 / range;
-                        athrust = RotateAboutZ(0, thrust, mBlackHoles[i].angle - Math.PI);
-                        mAvoidThrust.X += athrust.X;
-                        mAvoidThrust.Y += athrust.Y;
-                    }
-                }
-            }
-        }
-
-        */
-
-        private pose RotateAboutZ(double x, double y, double angle) // Rotate a vector clockwise through a given angle
-        {
-            pose p = new pose();
-            p.angle = angle;
-            p.X = x * Math.Cos(angle) + y * Math.Sin(angle);
-            p.Y = -x * Math.Sin(angle) + y * Math.Cos(angle);
-
-            /*
-             * The following is the rotation for rotating through an anti-clockwise direction and is found in most text books
-             * X' = xCosA - ySinA
-             * Y' = xSinA + yCosA
-             * 
-             * But we are rotating in a clockwise direction so the rotational equations become;
-             * X' = xCosA + ySinA
-             * Y' = -xCosA + ySinA
-            */
-            return p;
-        }
-
-        #region FileCreation
-
-        // Method      : CreateLogFile
-        // Input       : na
-        // Output      : na
-        // Description :
-        //      This method can be used to start a log file.
-        //      This creates a text file and then writes the first few line of the file.
-        //      If you put commas between the variable it will be a Comma Seperated File (CSV)
-        //      and can be open in Excel later on.
-        private void CreateLogFile()
-        {
-            sw = File.CreateText("MyLog.csv"); // Open log file
-            sw.WriteLine("My Name");    // Write first line of log (usually name of log)
-            sw.WriteLine("");           // Write a blank line
-            sw.WriteLine("Velocity Forward,Velocity Sideways,Velocity Rotational");   // Write second line (usually column headings)
-
-        }
-
-        // Method      : LogData
-        // Input       : na
-        // Output      : na
-        // Description :
-        //      This method can be used to file data to a log file created in CreateLogFile.
-        //      By putting commas between the variables you will get a CSV file.
-        //      All types of data have the .ToString() member to convert the type to a string
-        public void LogData()
-        {
-            //    sw.WriteLine(velForward.ToString() + "," +velRight.ToString() + "," + velRotation.ToString());  // Place variable that match the heading in CreateLogFile
-        }
-
-        // Method      : CloseLogFile
-        // Input       : na
-        // Output      : na
-        // Description :
-        //      This method will close the file opened in CreateLogFile.
-        //      Use it when you have finished logging data.
-        public void CloseLogFile()
-        {
-            try
-            {
-                sw.Close();
-                sw.Dispose();
-            }
-            catch
-            {
-            }
-        }
-
-        #endregion
     }
 }

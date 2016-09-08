@@ -552,7 +552,7 @@ namespace SpaceChaseLib
                     case 1:
                     case 2:
                     case 3:
-                        mNavigation.CreateSpiralPath();
+                        mNavigation.CreateBoxPath();
                         break;
 
                 }
@@ -788,6 +788,32 @@ namespace SpaceChaseLib
                 mPath[6].Y = -1000;
                 mPath[7].X = -1000;
                 mPath[7].Y = 1000;
+
+            }
+
+            public void CreateBoxPath()
+            {
+                for (int i = 0; i < 8; i++)
+                {
+                    pose lPose = new pose();
+                    mPath.Add(lPose);
+                }
+
+                //will get an angle on every object
+                mPath[0].X = 0;
+                mPath[0].Y = 1000;
+
+                mPath[1].X = 1000;
+                mPath[1].Y = 1000;
+
+                mPath[2].X = 1000;
+                mPath[2].Y = -1000;
+
+                mPath[3].X = -1000;
+                mPath[3].Y = -1000;
+
+                mPath[4].X = -1000;
+                mPath[4].Y = 1000;
 
             }
 

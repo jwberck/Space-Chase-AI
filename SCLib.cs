@@ -547,11 +547,6 @@ namespace SpaceChaseLib
             public void StartTask(int task)
             {
                 Reset();
-                mReportObject.complete = false;
-                mReportObject.X = 0;
-                mReportObject.Y = 0;
-
-
                 switch (task)
                 {
                     case 1:
@@ -593,7 +588,7 @@ namespace SpaceChaseLib
                         mIsRoutingToBlackHole = true;
                     }
 
-                    if (mIsRoutingToBlackHole && mMap.CalculateDistance(lPose.X, lPose.Y) < 200)
+                    if (mIsRoutingToBlackHole && mMap.CalculateDistance(lPose.X, lPose.Y) < 50)
                     {
                         mReportObject.X = lPose.X;
                         mReportObject.Y = lPose.Y;
@@ -617,7 +612,7 @@ namespace SpaceChaseLib
 
             public void EndTask(int task, bool IsScoutAlive)
             {
-
+                Reset();
             }
 
 
@@ -670,6 +665,10 @@ namespace SpaceChaseLib
                 mReportObject.X = 0;
                 mReportObject.Y = 0;
                 mReportObject.complete = false;
+
+                mIsRoutingToBlackHole = false;
+
+
             }
 
 

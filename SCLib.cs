@@ -358,16 +358,20 @@ namespace SpaceChaseLib
 
             public Sensor(List<SensorInfo> Tachyon, List<SensorInfo> Mass, List<SensorInfo> RF, List<SensorInfo> Visual, List<SensorInfo> Radar)
             {
-                /*
-                foreach(SensorInfo iTachyon in Tachyon)
+
+
+                foreach (SensorInfo iTachyon in Tachyon)
                 {
+                    if (!mRelativeForeignObject.ContainsKey(iTachyon.objectID))
+                    {
+                        mRelativeForeignObject[iTachyon.objectID] = new RelativeForeignObject();
+                        mRelativeForeignObject[iTachyon.objectID].mTypeOfObject = iTachyon.objectType;
+                        mRelativeForeignObject[iTachyon.objectID].mObjectID = iTachyon.objectID;
 
-                    mRelativeForeignObject[iTachyon.objectID].mRange = iTachyon.range;
-                    mRelativeForeignObject[iTachyon.objectID].mTypeOfObject = iTachyon.objectType;
+                    }
+
+                    mRelativeForeignObject[iTachyon.objectID].Range = iTachyon.range;
                 }
-                */
-
-                //only these are needed for black hole location.
 
                 foreach (SensorInfo iMass in Mass)
                 {
@@ -393,6 +397,34 @@ namespace SpaceChaseLib
                     }
 
                     mRelativeForeignObject[iRF.objectID].Angle = iRF.angle;
+                }
+
+                foreach (SensorInfo iVisual in Visual)
+                {
+                    if (!mRelativeForeignObject.ContainsKey(iVisual.objectID))
+                    {
+                        mRelativeForeignObject[iVisual.objectID] = new RelativeForeignObject();
+                        mRelativeForeignObject[iVisual.objectID].mTypeOfObject = iVisual.objectType;
+                        mRelativeForeignObject[iVisual.objectID].mObjectID = iVisual.objectID;
+
+                    }
+
+                    mRelativeForeignObject[iVisual.objectID].Angle = iVisual.angle;
+                }
+
+                foreach (SensorInfo iRadar in Radar)
+                {
+                    if (!mRelativeForeignObject.ContainsKey(iRadar.objectID))
+                    {
+                        mRelativeForeignObject[iRadar.objectID] = new RelativeForeignObject();
+                        mRelativeForeignObject[iRadar.objectID].mTypeOfObject = iRadar.objectType;
+                        mRelativeForeignObject[iRadar.objectID].mObjectID = iRadar.objectID;
+
+                    }
+
+                    mRelativeForeignObject[iRadar.objectID].Angle = iRadar.angle;
+                    mRelativeForeignObject[iRadar.objectID].Range = iRadar.range;
+
                 }
             }
         }

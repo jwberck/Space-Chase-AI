@@ -633,19 +633,34 @@ namespace SpaceChaseLib
             {
                 if (mMap.mAsteroids.Count == 1)
                 {
-                    pose lPose = new pose();
-                    lPose.X = mMap.mAsteroids.First().Value.mXCoord;
-                    lPose.Y = mMap.mAsteroids.First().Value.mYCoord;
+                    //This is super verbose, try to slim it down.
+                    //Gets collection point and distance to that point
+                    pose lCollectionPoint = mMap.CalculateCollectionPoint(mMap.mAsteroids.First().Value.mXCoord, mMap.mAsteroids.First().Value.mYCoord);
+                    double lDistanceToCollectionPoint = mMap.CalculateDistanceFromScout(lCollectionPoint.X, lCollectionPoint.Y);
 
-                    mNavigation.ReplaceWaypointAtFront(lPose);
+                    mNavigation.ReplaceWaypointAtFront(lCollectionPoint);
 
-                    if (!mReportObject.complete && mMap.CalculateDistanceFromScout(lPose.X, lPose.Y) < 300)
+                    //Reports the asteroid when close
+                    if (!mReportObject.complete && lDistanceToCollectionPoint < 100)
                     {
                         mReportObject.complete = true;
                     }
+
+                    //Turns on the miner if close enough and doesn't call navigation.
+                    if (lDistanceToCollectionPoint < 10)
+                    {
+                        mScoutActionControls.MinerOn = true;
+                    }
+                    else
+                    {
+                        mNavigation.MoveToWaypoint(0.4);
+                    }
+                }
+                else
+                {
+                    mNavigation.MoveToWaypoint(0.4);
                 }
 
-                mNavigation.MoveToWaypoint(0.4);
                 avoidBlackHole();
             }
 
@@ -965,6 +980,7 @@ namespace SpaceChaseLib
             public Dictionary<int, GlobalForeignObject> mCombatDrones = new Dictionary<int, GlobalForeignObject>();
             public Dictionary<int, GlobalForeignObject> mFactoryDrones = new Dictionary<int, GlobalForeignObject>();
 
+            public const double COLLECTION_RANGE = 50;
 
             public void ResetMap()
             {
@@ -1010,28 +1026,47 @@ namespace SpaceChaseLib
             }
 
             /// <summary>
+            /// Calculates a point within collection range of an asteroid field or distortion.
+            /// </summary>
+            /// <param name="aTargetX"></param>
+            /// <param name="aTargetY"></param>
+            /// <returns></returns>
+            public pose CalculateCollectionPoint(double aTargetX, double aTargetY)
+            {
+                pose lReturnPose = new pose();
+
+                double lCollecitonDistance = CalculateDistanceFromScout(aTargetX, aTargetY) - COLLECTION_RANGE;
+                double lCollectionAngle = CalculateAngleFromScout(aTargetX, aTargetY);
+
+                lReturnPose.X = lCollecitonDistance * Math.Sin(mScoutPose.angle + lCollectionAngle) + mScoutPose.X;
+                lReturnPose.Y = lCollecitonDistance * Math.Cos(mScoutPose.angle + lCollectionAngle) + mScoutPose.Y;
+
+                return lReturnPose;
+            }
+
+            /// <summary>
             /// Calculates the distance to a target from the Scouts position.
             /// </summary>
-            /// <param name="targetX"></param>
-            /// <param name="targetY"></param>
+            /// <param name="aTargetX"></param>
+            /// <param name="aTargetY"></param>
             /// <returns></returns>
-            public double CalculateDistanceFromScout(double targetX, double targetY)
+            public double CalculateDistanceFromScout(double aTargetX, double aTargetY)
             {
-                double deltaX = targetX - mScoutPose.X;
-                double deltaY = targetY - mScoutPose.Y;
+                double deltaX = aTargetX - mScoutPose.X;
+                double deltaY = aTargetY - mScoutPose.Y;
                 return Math.Sqrt(deltaX * deltaX + deltaY * deltaY); //Distance to waypoint
             }
 
             /// <summary>
             /// Calculates the distance to a target from the Scouts position.
             /// </summary>
-            /// <param name="targetX"></param>
-            /// <param name="targetY"></param>
+            /// <param name="aTargetX"></param>
+            /// <param name="aTargetY"></param>
             /// <returns></returns>
-            public double CalculateAngleFromScout(double targetX, double targetY)
+            public double CalculateAngleFromScout(double aTargetX, double aTargetY)
             {
-                double deltaX = targetX - mScoutPose.X;
-                double deltaY = targetY - mScoutPose.Y;
+                double deltaX = aTargetX - mScoutPose.X;
+                double deltaY = aTargetY - mScoutPose.Y;
 
                 return Math.Atan2(deltaY, deltaX) - mScoutPose.angle;
             }

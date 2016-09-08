@@ -626,12 +626,12 @@ namespace SpaceChaseLib
                         return;
                     }
                 }
-                mNavigation.MoveToWaypoint(0.4);
+                mNavigation.MoveToWaypoint(0.4, 50);
             }
 
             private void InTask2()
             {
-                if (mMap.mAsteroids.Count == 1)
+                if (mMap.mAsteroids.Count > 0)
                 {
                     //This is super verbose, try to slim it down.
                     //Gets collection point and distance to that point
@@ -646,22 +646,26 @@ namespace SpaceChaseLib
                         mReportObject.complete = true;
                     }
 
-                    //Turns on the miner if close enough and doesn't call navigation.
-                    if (lDistanceToCollectionPoint < 10)
+                    //Turns on the miner if close enough
+                    if (lDistanceToCollectionPoint < 15)
                     {
                         mScoutActionControls.MinerOn = true;
+                        mNavigation.MoveToWaypoint(0.01, 0);
                     }
                     else
                     {
-                        mNavigation.MoveToWaypoint(0.4);
+
+                        mNavigation.MoveToWaypoint(0.05, 1);
                     }
                 }
                 else
                 {
-                    mNavigation.MoveToWaypoint(0.4);
+                    mNavigation.MoveToWaypoint(0.4, 50);
                 }
 
                 avoidBlackHole();
+                mScoutThrustControls.ThrustRight += mAvoidThrust.X;
+                mScoutThrustControls.ThrustForward += mAvoidThrust.Y;
             }
 
 
@@ -886,10 +890,13 @@ namespace SpaceChaseLib
 
             public void ReplaceWaypointAtFront(pose aWaypoint)
             {
-                mPath[0] = aWaypoint;
+                if (mPath.Count > 0)
+                    mPath[0] = aWaypoint;
+                else
+                    Console.WriteLine("ERROR: Attempting to replace nonexistant waypoint!");
             }
 
-            public void MoveToWaypoint(double MaxVel)
+            public void MoveToWaypoint(double MaxVel, double aAccuracy)
             {
                 //Makes sure that momevemnt is not attempted until a path exists.
                 try
@@ -898,7 +905,7 @@ namespace SpaceChaseLib
                     double dist = mMap.CalculateDistanceFromScout(mPath[0].X, mPath[0].Y);
 
                     //if close enough, then go to the next waypoint
-                    if (dist < 50)
+                    if (dist < aAccuracy)
                     {
                         mPath.RemoveAt(0);
                     }
@@ -911,6 +918,8 @@ namespace SpaceChaseLib
 
 
             }
+
+
 
 
             private void MoveToTarget(double targetX, double targetY, double maxVelocity)
@@ -980,7 +989,7 @@ namespace SpaceChaseLib
             public Dictionary<int, GlobalForeignObject> mCombatDrones = new Dictionary<int, GlobalForeignObject>();
             public Dictionary<int, GlobalForeignObject> mFactoryDrones = new Dictionary<int, GlobalForeignObject>();
 
-            public const double COLLECTION_RANGE = 50;
+            public const double COLLECTION_RANGE = 70;
 
             public void ResetMap()
             {
@@ -1033,15 +1042,20 @@ namespace SpaceChaseLib
             /// <returns></returns>
             public pose CalculateCollectionPoint(double aTargetX, double aTargetY)
             {
-                pose lReturnPose = new pose();
+
+
+                pose lCollectionPoint = new pose();
 
                 double lCollecitonDistance = CalculateDistanceFromScout(aTargetX, aTargetY) - COLLECTION_RANGE;
                 double lCollectionAngle = CalculateAngleFromScout(aTargetX, aTargetY);
 
-                lReturnPose.X = lCollecitonDistance * Math.Sin(mScoutPose.angle + lCollectionAngle) + mScoutPose.X;
-                lReturnPose.Y = lCollecitonDistance * Math.Cos(mScoutPose.angle + lCollectionAngle) + mScoutPose.Y;
+                //lGFO.mXCoord = aRFO.Range * Math.Sin(aScoutPose.angle + aRFO.Angle) + aScoutPose.X;
+                //lGFO.mYCoord = aRFO.Range * Math.Cos(aScoutPose.angle + aRFO.Angle) + aScoutPose.Y;
 
-                return lReturnPose;
+                lCollectionPoint.X = lCollecitonDistance * Math.Sin(mScoutPose.angle + lCollectionAngle) + mScoutPose.X;
+                lCollectionPoint.Y = lCollecitonDistance * Math.Cos(mScoutPose.angle + lCollectionAngle) + mScoutPose.Y;
+
+                return lCollectionPoint;
             }
 
             /// <summary>
@@ -1065,10 +1079,25 @@ namespace SpaceChaseLib
             /// <returns></returns>
             public double CalculateAngleFromScout(double aTargetX, double aTargetY)
             {
+                double TwoPI = Math.PI * 2;
+
                 double deltaX = aTargetX - mScoutPose.X;
                 double deltaY = aTargetY - mScoutPose.Y;
 
-                return Math.Atan2(deltaY, deltaX) - mScoutPose.angle;
+                double angleToFace = Math.Atan2(deltaX, deltaY);
+
+                angleToFace = angleToFace % TwoPI;
+
+                double anglebetweenFaceAndCurrentHeading = angleToFace - mScoutPose.angle;
+
+                anglebetweenFaceAndCurrentHeading = anglebetweenFaceAndCurrentHeading % TwoPI;
+
+                if (anglebetweenFaceAndCurrentHeading < -Math.PI)
+                    anglebetweenFaceAndCurrentHeading += TwoPI;
+                else if (anglebetweenFaceAndCurrentHeading > Math.PI)
+                    anglebetweenFaceAndCurrentHeading -= TwoPI;
+
+                return anglebetweenFaceAndCurrentHeading;
             }
 
             /// <summary>

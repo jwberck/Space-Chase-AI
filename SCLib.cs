@@ -812,19 +812,8 @@ namespace SpaceChaseLib
                 //Makes sure that momevemnt is not attempted until a path exists.
                 try
                 {
-                    pose targetPose = new pose();
 
-                    targetPose.X = mPath[0].X;
-                    targetPose.Y = mPath[0].Y;
-
-                    double deltaX, deltaY;
-
-                    deltaX = targetPose.X - mMap.mScoutPose.X;
-                    deltaY = targetPose.Y - mMap.mScoutPose.Y;
-
-                    double dist;
-
-                    dist = Math.Sqrt(Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2));
+                    double dist = mMap.CalculateDistance(mPath[0].X, mPath[0].Y);
 
                     //if close enough, then go to the next waypoint
                     if (dist < 50)
@@ -834,11 +823,8 @@ namespace SpaceChaseLib
                             mPathDone = true;
                         }
                         mPath.RemoveAt(0);
-
-                        targetPose.X = mPath[0].X;
-                        targetPose.Y = mPath[0].Y;
                     }
-                    MoveToTarget(targetPose.X, targetPose.Y, MaxVel);
+                    MoveToTarget(mPath[0].X, mPath[0].Y, MaxVel);
                 }
                 catch (Exception ex)
                 {
@@ -981,7 +967,7 @@ namespace SpaceChaseLib
 
                 mScoutPose.angle += aScoutState.currentVelocityAngularCW * (aScoutState.deltaTime / 2);  // Get half of the angle rotated through since last time
                                                                                                          // (This is the average angle and is used to make the tracking more accurate)
-                mScoutPose.angle = mScoutPose.angle % Math.PI * 2;          // ensure to angle is between -2*PI ans 2*PI
+                mScoutPose.angle = mScoutPose.angle % (Math.PI * 2);          // ensure to angle is between -2*PI ans 2*PI
 
                 ndx = dx * Math.Cos(mScoutPose.angle) + dy * Math.Sin(mScoutPose.angle);  // Rotate the forward and sideways distances to world coords
                 ndy = -dx * Math.Sin(mScoutPose.angle) + dy * Math.Cos(mScoutPose.angle);
@@ -989,7 +975,7 @@ namespace SpaceChaseLib
                 mScoutPose.Y += ndy;
 
                 mScoutPose.angle += aScoutState.currentVelocityAngularCW * (aScoutState.deltaTime / 2);    // Get the last half of the angle rotated through
-                mScoutPose.angle = mScoutPose.angle % Math.PI * 2;          // ensure to angle is between -2*PI ans 2*PI
+                mScoutPose.angle = mScoutPose.angle % (Math.PI * 2);          // ensure to angle is between -2*PI ans 2*PI
 
             }
         }

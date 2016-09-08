@@ -564,6 +564,9 @@ namespace SpaceChaseLib
             pose mAvoidThrust = new pose();
             report mReportObject = new report();
 
+            //hacks
+            public bool isMinerFinished = false;
+
 
             /// <summary>
             /// Sets up references, bad practice. Attempt to seperate if possible.
@@ -596,7 +599,6 @@ namespace SpaceChaseLib
                 mMap.TrackShip(mScoutState);
                 mAvoidThrust.X = 0;
                 mAvoidThrust.Y = 0;
-                //avoidObject();
                 switch (task)
                 {
                     case 1:
@@ -604,6 +606,9 @@ namespace SpaceChaseLib
                         break;
                     case 2:
                         InTask2();
+                        break;
+                    case 3:
+                        InTask3();
                         break;
                 }
             }
@@ -668,6 +673,71 @@ namespace SpaceChaseLib
                 mScoutThrustControls.ThrustForward += mAvoidThrust.Y;
             }
 
+            private void InTask3()
+            {
+                if (mMap.mAsteroids.Count > 0 && isMinerFinished == false)
+                {
+                    //This is super verbose, try to slim it down.
+                    //Gets collection point and distance to that point
+                    pose lCollectionPoint = mMap.CalculateCollectionPoint(mMap.mAsteroids.First().Value.mXCoord, mMap.mAsteroids.First().Value.mYCoord);
+                    double lDistanceToCollectionPoint = mMap.CalculateDistanceFromScout(lCollectionPoint.X, lCollectionPoint.Y);
+
+                    mNavigation.ReplaceWaypointAtFront(lCollectionPoint);
+
+                    //Turns on the miner if close enough
+                    if (lDistanceToCollectionPoint < 15)
+                    {
+                        mScoutActionControls.MinerOn = true;
+                        mNavigation.MoveToWaypoint(0.01, 0);
+                    }
+                    else
+                    {
+
+                        mNavigation.MoveToWaypoint(0.05, 1);
+                    }
+
+                    if (mScoutState.hullIntegrity == 1)
+                    {
+                        mScoutActionControls.MinerOn = false;
+                        isMinerFinished = true;
+                    }
+
+                }
+                else if (mMap.mDistortions.Count > 0 && isMinerFinished == true)
+                {
+                    pose lCollectionPoint = mMap.CalculateCollectionPoint(mMap.mDistortions.First().Value.mXCoord, mMap.mDistortions.First().Value.mYCoord);
+                    double lDistanceToCollectionPoint = mMap.CalculateDistanceFromScout(lCollectionPoint.X, lCollectionPoint.Y);
+
+                    mNavigation.ReplaceWaypointAtFront(lCollectionPoint);
+
+                    //Turns on the miner if close enough
+                    if (lDistanceToCollectionPoint < 15)
+                    {
+                        mReportObject.complete = true;
+                        mScoutActionControls.EnergyExtractorOn = true;
+                        mNavigation.MoveToWaypoint(0.01, 0);
+                    }
+                    else
+                    {
+                        mNavigation.MoveToWaypoint(0.05, 1);
+                    }
+
+                    if (mScoutState.shieldEnergy == 1)
+                    {
+                        mScoutActionControls.ShieldOn = true;
+                    }
+                }
+
+
+                else
+                {
+                    mNavigation.MoveToWaypoint(0.4, 50);
+                }
+
+                avoidBlackHole();
+                mScoutThrustControls.ThrustRight += mAvoidThrust.X;
+                mScoutThrustControls.ThrustForward += mAvoidThrust.Y;
+            }
 
 
 
@@ -727,7 +797,7 @@ namespace SpaceChaseLib
                 mReportObject.Y = 0;
                 mReportObject.complete = false;
 
-
+                isMinerFinished = false;
             }
 
 

@@ -114,10 +114,10 @@ namespace SpaceChaseLib
         {
             StudentInfo SD = new StudentInfo();
 
-            SD.studentLastName = "Joordens";    // Replace the string with your last name
-            SD.studentFirstName = "Matthew";  // Replace the string with your first name
-            SD.studentIdNumber = "007";    // Replace the string with your student number
-            SD.studentCourse = "001";    // Replace the string with your course code
+            SD.studentLastName = "Berck";    // Replace the string with your last name
+            SD.studentFirstName = "James";  // Replace the string with your first name
+            SD.studentIdNumber = "216314405";    // Replace the string with your student number
+            SD.studentCourse = "X009S";    // Replace the string with your course code
 
             return SD;
         }

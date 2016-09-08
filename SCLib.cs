@@ -255,6 +255,7 @@ namespace SpaceChaseLib
         //      when an asteroid has been detected. For this X and Y are not required.
         public report Report()
         {
+
             return gBrain.Report();
         }
 
@@ -357,16 +358,20 @@ namespace SpaceChaseLib
 
             public Sensor(List<SensorInfo> Tachyon, List<SensorInfo> Mass, List<SensorInfo> RF, List<SensorInfo> Visual, List<SensorInfo> Radar)
             {
-                /*
-                foreach(SensorInfo iTachyon in Tachyon)
+
+
+                foreach (SensorInfo iTachyon in Tachyon)
                 {
+                    if (!mRelativeForeignObject.ContainsKey(iTachyon.objectID))
+                    {
+                        mRelativeForeignObject[iTachyon.objectID] = new RelativeForeignObject();
+                        mRelativeForeignObject[iTachyon.objectID].mTypeOfObject = iTachyon.objectType;
+                        mRelativeForeignObject[iTachyon.objectID].mObjectID = iTachyon.objectID;
 
-                    mRelativeForeignObject[iTachyon.objectID].mRange = iTachyon.range;
-                    mRelativeForeignObject[iTachyon.objectID].mTypeOfObject = iTachyon.objectType;
+                    }
+
+                    mRelativeForeignObject[iTachyon.objectID].Range = iTachyon.range;
                 }
-                */
-
-                //only these are needed for black hole location.
 
                 foreach (SensorInfo iMass in Mass)
                 {
@@ -392,6 +397,34 @@ namespace SpaceChaseLib
                     }
 
                     mRelativeForeignObject[iRF.objectID].Angle = iRF.angle;
+                }
+
+                foreach (SensorInfo iVisual in Visual)
+                {
+                    if (!mRelativeForeignObject.ContainsKey(iVisual.objectID))
+                    {
+                        mRelativeForeignObject[iVisual.objectID] = new RelativeForeignObject();
+                        mRelativeForeignObject[iVisual.objectID].mTypeOfObject = iVisual.objectType;
+                        mRelativeForeignObject[iVisual.objectID].mObjectID = iVisual.objectID;
+
+                    }
+
+                    mRelativeForeignObject[iVisual.objectID].Angle = iVisual.angle;
+                }
+
+                foreach (SensorInfo iRadar in Radar)
+                {
+                    if (!mRelativeForeignObject.ContainsKey(iRadar.objectID))
+                    {
+                        mRelativeForeignObject[iRadar.objectID] = new RelativeForeignObject();
+                        mRelativeForeignObject[iRadar.objectID].mTypeOfObject = iRadar.objectType;
+                        mRelativeForeignObject[iRadar.objectID].mObjectID = iRadar.objectID;
+
+                    }
+
+                    mRelativeForeignObject[iRadar.objectID].Angle = iRadar.angle;
+                    mRelativeForeignObject[iRadar.objectID].Range = iRadar.range;
+
                 }
             }
         }
@@ -531,8 +564,6 @@ namespace SpaceChaseLib
             pose mAvoidThrust = new pose();
             report mReportObject = new report();
 
-            bool mIsRoutingToBlackHole = false;
-
 
             /// <summary>
             /// Sets up references, bad practice. Attempt to seperate if possible.
@@ -571,6 +602,9 @@ namespace SpaceChaseLib
                     case 1:
                         InTask1();
                         break;
+                    case 2:
+                        InTask2();
+                        break;
                 }
             }
             private void InTask1()
@@ -582,29 +616,56 @@ namespace SpaceChaseLib
                     lPose.X = mMap.mBlackHoles.First().Value.mXCoord;
                     lPose.Y = mMap.mBlackHoles.First().Value.mYCoord;
 
-                    if (!mIsRoutingToBlackHole)
-                    {
-                        mNavigation.AddWaypointToFront(lPose);
-                        mIsRoutingToBlackHole = true;
-                    }
+                    mNavigation.ReplaceWaypointAtFront(lPose);
 
-                    if (mIsRoutingToBlackHole && mMap.CalculateDistance(lPose.X, lPose.Y) < 50)
+                    if (mMap.CalculateDistanceFromScout(lPose.X, lPose.Y) < 100)
                     {
                         mReportObject.X = lPose.X;
                         mReportObject.Y = lPose.Y;
                         mReportObject.complete = true;
                         return;
                     }
+                }
+                mNavigation.MoveToWaypoint(0.4, 50);
+            }
 
+            private void InTask2()
+            {
+                if (mMap.mAsteroids.Count > 0)
+                {
+                    //This is super verbose, try to slim it down.
+                    //Gets collection point and distance to that point
+                    pose lCollectionPoint = mMap.CalculateCollectionPoint(mMap.mAsteroids.First().Value.mXCoord, mMap.mAsteroids.First().Value.mYCoord);
+                    double lDistanceToCollectionPoint = mMap.CalculateDistanceFromScout(lCollectionPoint.X, lCollectionPoint.Y);
 
+                    mNavigation.ReplaceWaypointAtFront(lCollectionPoint);
+
+                    //Reports the asteroid when close
+                    if (!mReportObject.complete && lDistanceToCollectionPoint < 100)
+                    {
+                        mReportObject.complete = true;
+                    }
+
+                    //Turns on the miner if close enough
+                    if (lDistanceToCollectionPoint < 15)
+                    {
+                        mScoutActionControls.MinerOn = true;
+                        mNavigation.MoveToWaypoint(0.01, 0);
+                    }
+                    else
+                    {
+
+                        mNavigation.MoveToWaypoint(0.05, 1);
+                    }
+                }
+                else
+                {
+                    mNavigation.MoveToWaypoint(0.4, 50);
                 }
 
-                mNavigation.MoveToWaypoint(0.4);
-
-
-                mScoutActionControls.MinerOn = false;
-                mScoutActionControls.ShieldOn = false;
-                mScoutActionControls.EnergyExtractorOn = false;
+                avoidBlackHole();
+                mScoutThrustControls.ThrustRight += mAvoidThrust.X;
+                mScoutThrustControls.ThrustForward += mAvoidThrust.Y;
             }
 
 
@@ -666,37 +727,36 @@ namespace SpaceChaseLib
                 mReportObject.Y = 0;
                 mReportObject.complete = false;
 
-                mIsRoutingToBlackHole = false;
-
 
             }
 
 
 
-            /*
-            private void avoidObject()
-            {
-                double range = 0;
-                double thrust = 0;
-                pose athrust = new pose();
 
-                for (int i = 0; i < 11; i++)
+            private void avoidBlackHole()
+            {
+                double lRangeToObject = 0;
+                double thrust = 0;
+                pose lAvoidanceThrust = new pose();
+
+                foreach (KeyValuePair<int, GlobalForeignObject> iBlackHoleValuePair in mMap.mBlackHoles)
                 {
-                    if ((mBlackHoles[i].X != 0) && (mBlackHoles[i].Y != 0)) // check for blank or no blackhole
+                    lRangeToObject = mMap.CalculateDistanceFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
+                    if (lRangeToObject < 200)
                     {
-                        range = Math.Sqrt(Math.Pow(gScoutPose.X - mBlackHoles[i].X, 2) + Math.Pow(gScoutPose.Y - mBlackHoles[i].Y, 2));
-                        if (range < 200)
-                        {
-                            thrust = 600 / range;
-                            athrust = RotateAboutZ(0, thrust, mBlackHoles[i].angle - Math.PI);
-                            mAvoidThrust.X += athrust.X;
-                            mAvoidThrust.Y += athrust.Y;
-                        }
+                        thrust = 600 / lRangeToObject;
+
+                        double lAngleToBlackHole = mMap.CalculateAngleFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
+
+                        lAvoidanceThrust = RotateAboutZ(0, thrust, lAngleToBlackHole - Math.PI);
+                        mAvoidThrust.X += lAvoidanceThrust.X;
+                        mAvoidThrust.Y += lAvoidanceThrust.Y;
                     }
+
                 }
             }
 
-            */
+
 
             private pose RotateAboutZ(double x, double y, double angle) // Rotate a vector clockwise through a given angle
             {
@@ -716,9 +776,6 @@ namespace SpaceChaseLib
                 */
                 return p;
             }
-
-
-
         }
 
 
@@ -733,8 +790,6 @@ namespace SpaceChaseLib
             public PID mRotationalPID = new PID();
 
             List<pose> mPath = new List<pose>();
-
-            bool mPathDone = false;
 
             /// <summary>
             /// Called once at the begining of the game to establish references
@@ -815,6 +870,7 @@ namespace SpaceChaseLib
                 mPath[4].X = -1000;
                 mPath[4].Y = 1000;
 
+
             }
 
 
@@ -832,21 +888,25 @@ namespace SpaceChaseLib
                 mPath.Insert(0, aWaypoint);
             }
 
-            public void MoveToWaypoint(double MaxVel)
+            public void ReplaceWaypointAtFront(pose aWaypoint)
+            {
+                if (mPath.Count > 0)
+                    mPath[0] = aWaypoint;
+                else
+                    Console.WriteLine("ERROR: Attempting to replace nonexistant waypoint!");
+            }
+
+            public void MoveToWaypoint(double MaxVel, double aAccuracy)
             {
                 //Makes sure that momevemnt is not attempted until a path exists.
                 try
                 {
 
-                    double dist = mMap.CalculateDistance(mPath[0].X, mPath[0].Y);
+                    double dist = mMap.CalculateDistanceFromScout(mPath[0].X, mPath[0].Y);
 
                     //if close enough, then go to the next waypoint
-                    if (dist < 50)
+                    if (dist < aAccuracy)
                     {
-                        if (mPath.Count == 0)
-                        {
-                            mPathDone = true;
-                        }
                         mPath.RemoveAt(0);
                     }
                     MoveToTarget(mPath[0].X, mPath[0].Y, MaxVel);
@@ -858,6 +918,9 @@ namespace SpaceChaseLib
 
 
             }
+
+
+
 
             private void MoveToTarget(double targetX, double targetY, double maxVelocity)
             {
@@ -926,6 +989,7 @@ namespace SpaceChaseLib
             public Dictionary<int, GlobalForeignObject> mCombatDrones = new Dictionary<int, GlobalForeignObject>();
             public Dictionary<int, GlobalForeignObject> mFactoryDrones = new Dictionary<int, GlobalForeignObject>();
 
+            public const double COLLECTION_RANGE = 70;
 
             public void ResetMap()
             {
@@ -970,12 +1034,70 @@ namespace SpaceChaseLib
                 }
             }
 
-
-            public double CalculateDistance(double targetX, double targetY)
+            /// <summary>
+            /// Calculates a point within collection range of an asteroid field or distortion.
+            /// </summary>
+            /// <param name="aTargetX"></param>
+            /// <param name="aTargetY"></param>
+            /// <returns></returns>
+            public pose CalculateCollectionPoint(double aTargetX, double aTargetY)
             {
-                double deltaX = targetX - mScoutPose.X;
-                double deltaY = targetY - mScoutPose.Y;
+
+
+                pose lCollectionPoint = new pose();
+
+                double lCollecitonDistance = CalculateDistanceFromScout(aTargetX, aTargetY) - COLLECTION_RANGE;
+                double lCollectionAngle = CalculateAngleFromScout(aTargetX, aTargetY);
+
+                //lGFO.mXCoord = aRFO.Range * Math.Sin(aScoutPose.angle + aRFO.Angle) + aScoutPose.X;
+                //lGFO.mYCoord = aRFO.Range * Math.Cos(aScoutPose.angle + aRFO.Angle) + aScoutPose.Y;
+
+                lCollectionPoint.X = lCollecitonDistance * Math.Sin(mScoutPose.angle + lCollectionAngle) + mScoutPose.X;
+                lCollectionPoint.Y = lCollecitonDistance * Math.Cos(mScoutPose.angle + lCollectionAngle) + mScoutPose.Y;
+
+                return lCollectionPoint;
+            }
+
+            /// <summary>
+            /// Calculates the distance to a target from the Scouts position.
+            /// </summary>
+            /// <param name="aTargetX"></param>
+            /// <param name="aTargetY"></param>
+            /// <returns></returns>
+            public double CalculateDistanceFromScout(double aTargetX, double aTargetY)
+            {
+                double deltaX = aTargetX - mScoutPose.X;
+                double deltaY = aTargetY - mScoutPose.Y;
                 return Math.Sqrt(deltaX * deltaX + deltaY * deltaY); //Distance to waypoint
+            }
+
+            /// <summary>
+            /// Calculates the distance to a target from the Scouts position.
+            /// </summary>
+            /// <param name="aTargetX"></param>
+            /// <param name="aTargetY"></param>
+            /// <returns></returns>
+            public double CalculateAngleFromScout(double aTargetX, double aTargetY)
+            {
+                double TwoPI = Math.PI * 2;
+
+                double deltaX = aTargetX - mScoutPose.X;
+                double deltaY = aTargetY - mScoutPose.Y;
+
+                double angleToFace = Math.Atan2(deltaX, deltaY);
+
+                angleToFace = angleToFace % TwoPI;
+
+                double anglebetweenFaceAndCurrentHeading = angleToFace - mScoutPose.angle;
+
+                anglebetweenFaceAndCurrentHeading = anglebetweenFaceAndCurrentHeading % TwoPI;
+
+                if (anglebetweenFaceAndCurrentHeading < -Math.PI)
+                    anglebetweenFaceAndCurrentHeading += TwoPI;
+                else if (anglebetweenFaceAndCurrentHeading > Math.PI)
+                    anglebetweenFaceAndCurrentHeading -= TwoPI;
+
+                return anglebetweenFaceAndCurrentHeading;
             }
 
             /// <summary>

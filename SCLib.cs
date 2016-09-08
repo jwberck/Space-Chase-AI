@@ -7,7 +7,6 @@ using System.IO;
 namespace SpaceChaseLib
 
 {
-    #region Structs
 
     #region UnchangableStructs
 
@@ -83,52 +82,26 @@ namespace SpaceChaseLib
     #endregion
 
 
-
-
-
-    public struct pose
+    public class pose
     {
         public double X;
         public double Y;
         public double angle;
     }
-    #endregion
+
 
     public class SCLib
     {
-        //Unchangable Globals
+
+        #region Never touch again
+
+        private Brain gBrain = new Brain();
 
 
-        // "m" represents member variables
-        // "g" represents global variables
-
-        // TODO: Add your global variables here
-        ScoutControl gScoutControl = new ScoutControl();
-        pose mScoutPose = new pose();
-        ScoutStatus mScoutStatus = new ScoutStatus();
-        double TwoPI = Math.PI * 2;
 
 
-        PID gRotationalPID = new PID();
-        PID gXPID = new PID();   // holds the PID parameters for the Sideways motion PID
-        PID gYPID = new PID();   // holds the PID parameters for the forwards/backwards motion PID
-
-        pose[] mPath = new pose[20];                 // Used to hold a series of waypoints for the scount to follow
-        int mPathIndex;                              // Used to hold the current waypoint
-
-        report mReportObject = new report();
-
-        pose mBlackHolePose = new pose();
-
-        pose[] mBlackHoles = new pose[11];
-        SensorInfo[] mBlackholesSensor = new SensorInfo[11];
-
-        pose mAvoidThrust = new pose();
-
-        private StreamWriter sw; //This holds the file to log data to in CSV format
 
 
-        #region InterfaceOutputs
 
 
         // Method      : StudentDetails
@@ -164,14 +137,7 @@ namespace SpaceChaseLib
         //          Ship X : -1834.679834
         //          Ship Y : 352.6738307
         //      The escape character "\n" seen before the "Ship Y : " will cause a new line to be added.
-        public String ScreenMessage()
-        {
-            string strMessage;
 
-            strMessage = "Ship X :" + mScoutPose.X.ToString() + "\nShip Y : " + mScoutPose.Y.ToString() + "\nShip A : " + mScoutPose.angle.ToString() + "\nBH X = " + mBlackHolePose.X.ToString() + "\nBH Y = " + mBlackHolePose.Y.ToString();
-
-            return strMessage;
-        }
 
         // Method      : ThrustersAndControl
         // Input       : na
@@ -188,47 +154,21 @@ namespace SpaceChaseLib
         //      in the SCParameters.txt file.
         public ScoutControl ThrustersAndControl()
         {
-            return gScoutControl;
+            ScoutControl lScoutControl = new ScoutControl();
+
+            lScoutControl.ThrustForward = gBrain.mScoutThrustControls.ThrustForward;
+            lScoutControl.ThrustRight = gBrain.mScoutThrustControls.ThrustRight;
+            lScoutControl.ThrustCW = gBrain.mScoutThrustControls.ThrustCW;
+
+            lScoutControl.MinerOn = gBrain.mScoutActionControls.MinerOn;
+            lScoutControl.ShieldOn = gBrain.mScoutActionControls.ShieldOn;
+            lScoutControl.EnergyExtractorOn = gBrain.mScoutActionControls.EnergyExtractorOn;
+
+            return lScoutControl;
+
+
+
         }
-
-
-        // Method      : Report
-        // Input       : na
-        // Output      : r (type: report)
-        // Description :
-        //      This method is call 60 time per second.
-        //      It is used during task 1 which required you to find and report
-        //      the location of the blackhole. Once the blackhole has been found,
-        //      set the X and Y coords of the blackhole and set complete to true.
-        //      It is also used in task 2 to report an asteroid. Set complete to true
-        //      when an asteroid has been detected. For this X and Y are not required.
-        public report Report()
-        {
-            report r = new report();    // set up a report structure to return
-
-            r.complete = false;         // Set to true when the report is ready
-            r.X = 0;                    // Set to the blackhole's X coord
-            r.Y = 0;                    // Set to the blackhole's Y coord
-
-            return mReportObject;
-        }
-
-
-        #endregion
-
-        #region InterfaceInputs
-
-        // Method      : InitialiseGame
-        // Input       : na
-        // Output      : na
-        // Description :
-        //      This method is called once when the program is first run 
-        //      and can be use to initialise any variables if required
-        public void InitialiseGame()
-        {
-        }
-
-
 
         // Method      : GameStatus
         // Input       : gs (type:GameStatus)
@@ -239,6 +179,7 @@ namespace SpaceChaseLib
         //      You may used this information as you wish.
         public void GameStatus(GameStatus gs)
         {
+            gBrain.mGameStatus = gs;
         }
 
 
@@ -250,8 +191,27 @@ namespace SpaceChaseLib
         //      You will need the status to control the ship
         public void ProvideScoutStatus(ScoutStatus ss)
         {
-            mScoutStatus = ss;
+
+
+            //Convert the struct to a class so that it can be used as a reference type
+            gBrain.mScoutState.deltaTime = ss.deltaTime;
+            gBrain.mScoutState.deltaVelocityForward = ss.deltaVelocityForward;
+            gBrain.mScoutState.deltaVelocityRight = ss.deltaVelocityRight;
+            gBrain.mScoutState.deltaVelocityAngularCW = ss.deltaVelocityAngularCW;
+            gBrain.mScoutState.currentVelocityForward = ss.currentVelocityForward;
+            gBrain.mScoutState.currentVelocityRight = ss.currentVelocityRight;
+            gBrain.mScoutState.currentVelocityAngularCW = ss.currentVelocityAngularCW;
+            gBrain.mScoutState.averageVelocityForward = ss.averageVelocityForward;
+            gBrain.mScoutState.averageVelocityRight = ss.averageVelocityRight;
+            gBrain.mScoutState.averageVelocityAngularCW = ss.averageVelocityAngularCW;
+            gBrain.mScoutState.shieldEnergy = ss.shieldEnergy;
+            gBrain.mScoutState.hullIntegrity = ss.hullIntegrity;
+
+
         }
+
+
+
 
         // Method      : Sensors
         // Input       : Tachyon, Mass, RF,Visual,Radar (type:List<SenorInfo> - this is an array of variable length)
@@ -273,53 +233,41 @@ namespace SpaceChaseLib
         //              }
         public void Sensors(List<SensorInfo> Tachyon, List<SensorInfo> Mass, List<SensorInfo> RF, List<SensorInfo> Visual, List<SensorInfo> Radar)
         {
-            int numberOfItems;
+            Sensor lSensor = new Sensor(Tachyon, Mass, RF, Visual, Radar);
+            gBrain.mMap.UpdateMap(lSensor.mRelativeForeignObject);
+        }
 
-            numberOfItems = RF.Count;
+        public String ScreenMessage()
+        {
+            return gBrain.ScreenMessage();
+        }
 
-            double BHrange = 0;
-            double BHangle = 0;
 
-            for (int i = 0; i < 11; i++)
-            {
-                mBlackholesSensor[i].angle = 0;
-                mBlackholesSensor[i].range = 0;
-            }
-            for (int i = 0; i < numberOfItems; i++)
-            {
-                if (RF[i].objectType == ObjectType.BlackHole)
-                {
-                    BHangle = RF[i].angle;
-                    mBlackholesSensor[RF[i].objectID].angle = RF[i].angle;
-                }
-            }
+        // Method      : Report
+        // Input       : na
+        // Output      : r (type: report)
+        // Description :
+        //      This method is call 60 time per second.
+        //      It is used during task 1 which required you to find and report
+        //      the location of the blackhole. Once the blackhole has been found,
+        //      set the X and Y coords of the blackhole and set complete to true.
+        //      It is also used in task 2 to report an asteroid. Set complete to true
+        //      when an asteroid has been detected. For this X and Y are not required.
+        public report Report()
+        {
+            return gBrain.Report();
+        }
 
-            foreach (SensorInfo m in Mass)
-            {
-                if (m.objectType == ObjectType.BlackHole)
-                {
-                    BHrange = m.range;
-                    mBlackholesSensor[m.objectID].range = m.range;
-                }
-            }
 
-            for (int i = 0; i < 11; i++)
-            {
-                mBlackHolePose = GetCoords(mScoutPose.X, mScoutPose.Y, mScoutPose.angle, mBlackholesSensor[i].angle, mBlackholesSensor[i].range);
-                if ((mBlackHolePose.X != mScoutPose.X) && (mBlackHolePose.Y != mScoutPose.Y))
-                {
-                    mBlackHoles[i] = mBlackHolePose;
-                    mBlackHoles[i].angle = mBlackholesSensor[i].angle; //store local angle. Only accurate during this current cycle
-                }
-            }
-
-            if (BHrange != 0)
-            {
-                mBlackHolePose = GetCoords(mScoutPose.X, mScoutPose.Y, mScoutPose.angle, BHangle, BHrange);
-                mReportObject.X = mBlackHolePose.X;
-                mReportObject.Y = mBlackHolePose.Y;
-                //  reportObject.complete = true;
-            }
+        // Method      : InitialiseGame
+        // Input       : na
+        // Output      : na
+        // Description :
+        //      This method is called once when the program is first run 
+        //      and can be use to initialise any variables if required
+        public void InitialiseGame()
+        {
+            gBrain.InitialiseGame();
         }
 
         // Method      : StartLevel
@@ -329,7 +277,7 @@ namespace SpaceChaseLib
         // This method is call once at the start of a game level and it give the games level.
         public void StartLevel(int levelNumber)
         {
-
+            gBrain.StartLevel(levelNumber);
         }
 
         // Method      : EndLevel
@@ -340,7 +288,7 @@ namespace SpaceChaseLib
         //      It give the games level and if the scout survived the level.
         public void EndLevel(int levelNumber, bool IsScoutAlive)
         {
-
+            gBrain.EndLevel(levelNumber, IsScoutAlive);
         }
 
 
@@ -352,6 +300,7 @@ namespace SpaceChaseLib
         //      It give the games level.
         public void InLevel(int levelNumber)
         {
+            gBrain.InLevel(levelNumber);
         }
 
         // Method      : StartTask
@@ -361,43 +310,7 @@ namespace SpaceChaseLib
         // This method is call once at the start of a task and it give the task number.
         public void StartTask(int task)
         {
-            InitializeControl();
-
-            mScoutPose.X = 0;
-            mScoutPose.Y = 0;
-            mScoutPose.angle = 0;
-
-            gRotationalPID.InitializePID(-3, 3, 10000, 0, 0);
-            gXPID.InitializePID(-1.5, 1.5, 10, 0, 0);
-            gYPID.InitializePID(-3, 3, 10, 0, 0);
-
-            mPath[0].X = 500;        // Generate a path of waypoints
-            mPath[0].Y = 500;
-            mPath[1].X = 500;
-            mPath[1].Y = -500;
-            mPath[2].X = -500;
-            mPath[2].Y = -500;
-            mPath[3].X = -500;
-            mPath[3].Y = 500;
-            mPath[4].X = 1000;
-            mPath[4].Y = 1000;
-            mPath[5].X = 1000;
-            mPath[5].Y = -1000;
-            mPath[6].X = -1000;
-            mPath[6].Y = -1000;
-            mPath[7].X = -1000;
-            mPath[7].Y = 1000;
-            mPathIndex = 0;
-
-            mReportObject.complete = false;
-            mReportObject.X = 0;
-            mReportObject.Y = 0;
-
-            for (int i = 0; i < 11; i++)
-            {
-                mBlackHoles[i].X = 0;
-                mBlackHoles[i].Y = 0;
-            }
+            gBrain.StartTask(task);
         }
 
         // Method      : EndTask
@@ -408,7 +321,7 @@ namespace SpaceChaseLib
         //      It give the task number and if the scout survived the task.
         public void EndTask(int task, bool IsScoutAlive)
         {
-
+            gBrain.EndTask(task, IsScoutAlive);
         }
 
 
@@ -420,19 +333,104 @@ namespace SpaceChaseLib
         //      It give the task level.
         public void InTask(int task)
         {
-            TrackShip(mScoutStatus,mScoutPose);
-            mAvoidThrust.X = 0;
-            mAvoidThrust.Y = 0;
-            avoidObject();
-            switch (task)
-            {
-                case 1:
-                    InTask1();
-                    break;
-            }
+
+            gBrain.InTask(task);
         }
 
         #endregion
+
+
+        public class Sensor
+        {
+
+            private Dictionary<int, RelativeForeignObject> RelativeForeignObject = new Dictionary<int, RelativeForeignObject>();
+
+            public Dictionary<int, RelativeForeignObject> mRelativeForeignObject
+            {
+                get
+                {
+                    return RelativeForeignObject;
+                }
+            }
+
+
+
+            public Sensor(List<SensorInfo> Tachyon, List<SensorInfo> Mass, List<SensorInfo> RF, List<SensorInfo> Visual, List<SensorInfo> Radar)
+            {
+                /*
+                foreach(SensorInfo iTachyon in Tachyon)
+                {
+
+                    mRelativeForeignObject[iTachyon.objectID].mRange = iTachyon.range;
+                    mRelativeForeignObject[iTachyon.objectID].mTypeOfObject = iTachyon.objectType;
+                }
+                */
+
+                //only these are needed for black hole location.
+
+                foreach (SensorInfo iMass in Mass)
+                {
+                    if (!mRelativeForeignObject.ContainsKey(iMass.objectID))
+                    {
+                        mRelativeForeignObject[iMass.objectID] = new RelativeForeignObject();
+                        mRelativeForeignObject[iMass.objectID].mTypeOfObject = iMass.objectType;
+                        mRelativeForeignObject[iMass.objectID].mObjectID = iMass.objectID;
+
+                    }
+
+                    mRelativeForeignObject[iMass.objectID].Range = iMass.range;
+                }
+
+                foreach (SensorInfo iRF in RF)
+                {
+                    if (!mRelativeForeignObject.ContainsKey(iRF.objectID))
+                    {
+                        mRelativeForeignObject[iRF.objectID] = new RelativeForeignObject();
+                        mRelativeForeignObject[iRF.objectID].mTypeOfObject = iRF.objectType;
+                        mRelativeForeignObject[iRF.objectID].mObjectID = iRF.objectID;
+
+                    }
+
+                    mRelativeForeignObject[iRF.objectID].Angle = iRF.angle;
+                }
+            }
+        }
+
+        /// <summary>
+        /// An object in space that is represented relative to the ship.
+        /// </summary>
+        public class RelativeForeignObject
+        {
+            public int mObjectID;
+            public ObjectType mTypeOfObject;
+
+            private bool mFoundRange = false;
+
+
+            private double mAngle;
+            public double Angle
+            {
+                set { mAngle = value; }
+                get { return mAngle; }
+            }
+
+            private double mRange;
+            public double Range
+            {
+                set { mFoundRange = true; mRange = value; }
+                get { return mRange; }
+            }
+
+
+            public bool FoundRange
+            {
+                get { return mFoundRange; }
+            }
+        }
+
+
+
+        private StreamWriter sw; //This holds the file to log data to in CSV format
 
         #region FileCreation
 
@@ -485,21 +483,597 @@ namespace SpaceChaseLib
 
         #endregion
 
-        #region PIDMethods
-
-
-        private class PID
+        public class ScoutThrustControls
         {
-       
-                      
+            public double ThrustForward = 0;    // This is the forward thrust (-ve thrust is rearward)
+            public double ThrustRight = 0;      // This is sideways, or strafing thrust (+ve i to the right of the scout)
+            public double ThrustCW = 0;         // This is angular/rotational thrust (+ve is clockwise) 
+        }
+
+        public class ScoutActionControls
+        {
+            public bool ShieldOn;           // This is set to true if you want the shields to be on
+            public bool EnergyExtractorOn;  // This is set to true if you want the Energy Extractor to be operating
+            public bool MinerOn;            // This is set to true if you want the Miner to be operating
+        }
+
+
+        public class ScoutState
+        {
+            public double deltaTime;        // Time since this was last called
+            public double deltaVelocityForward; // change in forward velocity (+ve forward)
+            public double deltaVelocityRight;   // change in sideways velocity (+ve right)
+            public double deltaVelocityAngularCW;   // change in rotational velocity (+ve is clockwise)
+            public double currentVelocityForward;   // current forward velocity (+ve forward)
+            public double currentVelocityRight;     // current sideways velocity (+ve right)
+            public double currentVelocityAngularCW; // current rotational velocity (+ve is clockwise)
+            public double averageVelocityForward;   // average forward velocity (+ve forward)
+            public double averageVelocityRight;     // average sideways velocity (+ve right)
+            public double averageVelocityAngularCW; // average rotational velocity (+ve is clockwise)
+            public double shieldEnergy;             // current level of shield energy (0.0 to 1.0)
+            public double hullIntegrity;            // current level of hull integrity (0.0 to 1.0)
+        }
+
+
+        private class Brain
+        {
+            //World Status, updated every frame
+            public ScoutState mScoutState = new ScoutState();
+            public GameStatus mGameStatus = new GameStatus();
+            public Map mMap = new Map();
+
+            //Scout Control, outputs every frame
+            public ScoutThrustControls mScoutThrustControls = new ScoutThrustControls();
+            public ScoutActionControls mScoutActionControls = new ScoutActionControls();
+
+
+            public Navigation mNavigation = new Navigation();
+            pose mAvoidThrust = new pose();
+            report mReportObject = new report();
+
+            bool mIsRoutingToBlackHole = false;
+
+
+            /// <summary>
+            /// Sets up references, bad practice. Attempt to seperate if possible.
+            /// </summary>
+            public void InitialiseGame()
+            {
+                mNavigation.Initialize(mMap, mScoutThrustControls, mScoutState);
+            }
+
+
+
+            public void StartTask(int task)
+            {
+                Reset();
+                switch (task)
+                {
+                    case 1:
+                    case 2:
+                    case 3:
+                        mNavigation.CreateBoxPath();
+                        break;
+
+                }
+
+            }
+
+            public void InTask(int task)
+            {
+
+                mMap.TrackShip(mScoutState);
+                mAvoidThrust.X = 0;
+                mAvoidThrust.Y = 0;
+                //avoidObject();
+                switch (task)
+                {
+                    case 1:
+                        InTask1();
+                        break;
+                }
+            }
+            private void InTask1()
+            {
+
+                if (mMap.mBlackHoles.Count == 1)
+                {
+                    pose lPose = new pose();
+                    lPose.X = mMap.mBlackHoles.First().Value.mXCoord;
+                    lPose.Y = mMap.mBlackHoles.First().Value.mYCoord;
+
+                    if (!mIsRoutingToBlackHole)
+                    {
+                        mNavigation.AddWaypointToFront(lPose);
+                        mIsRoutingToBlackHole = true;
+                    }
+
+                    if (mIsRoutingToBlackHole && mMap.CalculateDistance(lPose.X, lPose.Y) < 50)
+                    {
+                        mReportObject.X = lPose.X;
+                        mReportObject.Y = lPose.Y;
+                        mReportObject.complete = true;
+                        return;
+                    }
+
+
+                }
+
+                mNavigation.MoveToWaypoint(0.4);
+
+
+                mScoutActionControls.MinerOn = false;
+                mScoutActionControls.ShieldOn = false;
+                mScoutActionControls.EnergyExtractorOn = false;
+            }
+
+
+
+
+            public void EndTask(int task, bool IsScoutAlive)
+            {
+                Reset();
+            }
+
+
+
+            public void StartLevel(int levelNumber)
+            {
+
+            }
+
+            public void InLevel(int levelNumber)
+            {
+            }
+
+            public void EndLevel(int levelNumber, bool IsScoutAlive)
+            {
+
+            }
+            public String ScreenMessage()
+            {
+                string strMessage;
+
+                strMessage = "Ship X :" + mMap.mScoutPose.X.ToString() + "\nShip Y : " + mMap.mScoutPose.Y.ToString() + "\nShip A : " + mMap.mScoutPose.angle.ToString();
+                //strMessage += "\nBH X = " + mBlackHolePose.X.ToString() + "\nBH Y = " + mBlackHolePose.Y.ToString();
+
+                return strMessage;
+            }
+
+            /// <summary>
+            /// Used for tasks 1 and 2.
+            /// </summary>
+            /// <returns></returns>
+            public report Report()
+            {
+                return mReportObject;
+            }
+
+            public void Reset()
+            {
+                mScoutThrustControls.ThrustCW = 0;
+                mScoutThrustControls.ThrustForward = 0;
+                mScoutThrustControls.ThrustRight = 0;
+
+                mScoutActionControls.ShieldOn = false;
+                mScoutActionControls.MinerOn = false;
+                mScoutActionControls.EnergyExtractorOn = false;
+
+                mMap.ResetMap();
+                mNavigation.ResetNavigation();
+
+                mReportObject.X = 0;
+                mReportObject.Y = 0;
+                mReportObject.complete = false;
+
+                mIsRoutingToBlackHole = false;
+
+
+            }
+
+
+
+            /*
+            private void avoidObject()
+            {
+                double range = 0;
+                double thrust = 0;
+                pose athrust = new pose();
+
+                for (int i = 0; i < 11; i++)
+                {
+                    if ((mBlackHoles[i].X != 0) && (mBlackHoles[i].Y != 0)) // check for blank or no blackhole
+                    {
+                        range = Math.Sqrt(Math.Pow(gScoutPose.X - mBlackHoles[i].X, 2) + Math.Pow(gScoutPose.Y - mBlackHoles[i].Y, 2));
+                        if (range < 200)
+                        {
+                            thrust = 600 / range;
+                            athrust = RotateAboutZ(0, thrust, mBlackHoles[i].angle - Math.PI);
+                            mAvoidThrust.X += athrust.X;
+                            mAvoidThrust.Y += athrust.Y;
+                        }
+                    }
+                }
+            }
+
+            */
+
+            private pose RotateAboutZ(double x, double y, double angle) // Rotate a vector clockwise through a given angle
+            {
+                pose p = new pose();
+                p.angle = angle;
+                p.X = x * Math.Cos(angle) + y * Math.Sin(angle);
+                p.Y = -x * Math.Sin(angle) + y * Math.Cos(angle);
+
+                /*
+                 * The following is the rotation for rotating through an anti-clockwise direction and is found in most text books
+                 * X' = xCosA - ySinA
+                 * Y' = xSinA + yCosA
+                 * 
+                 * But we are rotating in a clockwise direction so the rotational equations become;
+                 * X' = xCosA + ySinA
+                 * Y' = -xCosA + ySinA
+                */
+                return p;
+            }
+
+
+
+        }
+
+
+        public class Navigation
+        {
+            Map mMap;
+            ScoutThrustControls mScoutThrustControls;
+            ScoutState mScoutState;
+
+            public PID mXPID = new PID();
+            public PID mYPID = new PID();
+            public PID mRotationalPID = new PID();
+
+            List<pose> mPath = new List<pose>();
+
+            bool mPathDone = false;
+
+            /// <summary>
+            /// Called once at the begining of the game to establish references
+            /// </summary>
+            /// <param name="aMap"></param>
+            /// <param name="aScoutControl"></param>
+            /// <param name="aScoutStatus"></param>
+            public void Initialize(Map aMap, ScoutThrustControls aScoutThrustControls, ScoutState aScoutState)
+            {
+                mMap = aMap;
+                mScoutThrustControls = aScoutThrustControls;
+                mScoutState = aScoutState;
+            }
+
+            /// <summary>
+            /// Resets Navigation by setting the PID values.
+            /// </summary>
+            /// <param name="aMap"></param>
+            /// <param name="aScoutControl"></param>
+            public void ResetNavigation()
+            {
+
+                mRotationalPID.Initialize(-3, 3, 10000, 0, 0);
+                mXPID.Initialize(-1.5, 1.5, 10, 0, 0);
+                mYPID.Initialize(-3, 3, 10, 0, 0);
+                mPath.Clear();
+            }
+
+
+            public void CreateSpiralPath()
+            {
+                for (int i = 0; i < 8; i++)
+                {
+                    pose lPose = new pose();
+                    mPath.Add(lPose);
+                }
+
+                mPath[0].X = 500;        // Generate a path of waypoints
+                mPath[0].Y = 500;
+                mPath[1].X = 500;
+                mPath[1].Y = -500;
+                mPath[2].X = -500;
+                mPath[2].Y = -500;
+                mPath[3].X = -500;
+                mPath[3].Y = 500;
+                mPath[4].X = 1000;
+                mPath[4].Y = 1000;
+                mPath[5].X = 1000;
+                mPath[5].Y = -1000;
+                mPath[6].X = -1000;
+                mPath[6].Y = -1000;
+                mPath[7].X = -1000;
+                mPath[7].Y = 1000;
+
+            }
+
+            public void CreateBoxPath()
+            {
+                for (int i = 0; i < 8; i++)
+                {
+                    pose lPose = new pose();
+                    mPath.Add(lPose);
+                }
+
+                //will get an angle on every object
+                mPath[0].X = 0;
+                mPath[0].Y = 1000;
+
+                mPath[1].X = 1000;
+                mPath[1].Y = 1000;
+
+                mPath[2].X = 1000;
+                mPath[2].Y = -1000;
+
+                mPath[3].X = -1000;
+                mPath[3].Y = -1000;
+
+                mPath[4].X = -1000;
+                mPath[4].Y = 1000;
+
+            }
+
+
+            public void AddWaypointsToFront(List<pose> aWaypoints)
+            {
+                for (int i = aWaypoints.Count - 1; i >= 0; i--)
+                {
+                    AddWaypointToFront(aWaypoints[i]);
+                }
+            }
+
+
+            public void AddWaypointToFront(pose aWaypoint)
+            {
+                mPath.Insert(0, aWaypoint);
+            }
+
+            public void MoveToWaypoint(double MaxVel)
+            {
+                //Makes sure that momevemnt is not attempted until a path exists.
+                try
+                {
+
+                    double dist = mMap.CalculateDistance(mPath[0].X, mPath[0].Y);
+
+                    //if close enough, then go to the next waypoint
+                    if (dist < 50)
+                    {
+                        if (mPath.Count == 0)
+                        {
+                            mPathDone = true;
+                        }
+                        mPath.RemoveAt(0);
+                    }
+                    MoveToTarget(mPath[0].X, mPath[0].Y, MaxVel);
+                }
+                catch (Exception ex)
+                {
+                    Console.Write(ex.Message);
+                }
+
+
+            }
+
+            private void MoveToTarget(double targetX, double targetY, double maxVelocity)
+            {
+                double TwoPI = Math.PI * 2;
+
+                double deltaX = targetX - mMap.mScoutPose.X;
+                double deltaY = targetY - mMap.mScoutPose.Y;
+
+                double angleToFace = Math.Atan2(deltaX, deltaY);
+
+                angleToFace = angleToFace % TwoPI;
+
+                double anglebetweenFaceAndCurrentHeading = angleToFace - mMap.mScoutPose.angle;
+
+                anglebetweenFaceAndCurrentHeading = anglebetweenFaceAndCurrentHeading % TwoPI;
+
+                if (anglebetweenFaceAndCurrentHeading < -Math.PI)
+                    anglebetweenFaceAndCurrentHeading += TwoPI;
+                else if (anglebetweenFaceAndCurrentHeading > Math.PI)
+                    anglebetweenFaceAndCurrentHeading -= TwoPI;
+
+                double requiredCWVel = anglebetweenFaceAndCurrentHeading / 64;
+
+                if (requiredCWVel > 0.005f)
+                    requiredCWVel = 0.005f;
+                else if (requiredCWVel < -0.005)
+                    requiredCWVel = -0.005;
+
+                mScoutThrustControls.ThrustCW = mRotationalPID.CalculateThrust(requiredCWVel, mScoutState.currentVelocityAngularCW);
+
+
+
+                double distance = Math.Sqrt(deltaX * deltaX + deltaY * deltaY); //Distance to waypoint
+                double newdX, newdY;
+                double requiredXVel, requiredYVel;
+
+
+                newdX = distance * Math.Sin(anglebetweenFaceAndCurrentHeading); // Get the sideways distance the scout must move
+                newdY = distance * Math.Cos(anglebetweenFaceAndCurrentHeading); // Get the forward distance the scout must move
+
+                requiredXVel = newdX / 200;     // The required velocity is slower as the scout gets closer to the destination
+                requiredYVel = newdY / 200;
+
+                mScoutThrustControls.ThrustRight = mXPID.CalculateThrust(requiredXVel, mScoutState.currentVelocityRight);
+
+                if (requiredYVel > maxVelocity)
+                    requiredYVel = maxVelocity;
+
+                mScoutThrustControls.ThrustForward = mYPID.CalculateThrust(requiredYVel, mScoutState.currentVelocityForward);
+            }
+
+        }
+
+
+
+        /// <summary>
+        /// The class that handles all mapping.
+        /// </summary>
+        public class Map
+        {
+            public pose mScoutPose = new pose();
+
+            public Dictionary<int, GlobalForeignObject> mBlackHoles = new Dictionary<int, GlobalForeignObject>();
+            public Dictionary<int, GlobalForeignObject> mAsteroids = new Dictionary<int, GlobalForeignObject>();
+            public Dictionary<int, GlobalForeignObject> mDistortions = new Dictionary<int, GlobalForeignObject>();
+            public Dictionary<int, GlobalForeignObject> mCombatDrones = new Dictionary<int, GlobalForeignObject>();
+            public Dictionary<int, GlobalForeignObject> mFactoryDrones = new Dictionary<int, GlobalForeignObject>();
+
+
+            public void ResetMap()
+            {
+                mScoutPose.X = 0;
+                mScoutPose.Y = 0;
+                mScoutPose.angle = 0;
+
+                mBlackHoles.Clear();
+                mAsteroids.Clear();
+                mDistortions.Clear();
+                mCombatDrones.Clear();
+                mFactoryDrones.Clear();
+            }
+
+            /// <summary>
+            /// Updates the map every frame.
+            /// </summary>
+            /// <param name="aRelativeForeignObjects"></param>
+            public void UpdateMap(Dictionary<int, RelativeForeignObject> aRelativeForeignObjects)
+            {
+                foreach (KeyValuePair<int, RelativeForeignObject> iKeyValue in aRelativeForeignObjects)
+                {
+                    switch (iKeyValue.Value.mTypeOfObject)
+                    {
+                        case ObjectType.BlackHole:
+                            mBlackHoles[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+                        case ObjectType.Asteroid:
+                            mAsteroids[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+                        case ObjectType.Distortion:
+                            mDistortions[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+                        case ObjectType.CombatDrone:
+                            mCombatDrones[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+                        case ObjectType.Factory:
+                            mFactoryDrones[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            break;
+
+                    }
+                }
+            }
+
+
+            public double CalculateDistance(double targetX, double targetY)
+            {
+                double deltaX = targetX - mScoutPose.X;
+                double deltaY = targetY - mScoutPose.Y;
+                return Math.Sqrt(deltaX * deltaX + deltaY * deltaY); //Distance to waypoint
+            }
+
+            /// <summary>
+            /// This method was created by the professor. 
+            /// </summary>
+            /// <param name="aScoutState"></param>
+            public void TrackShip(ScoutState aScoutState)             // Use the current velocities to track the ship
+            {
+                double dx, dy, ndx, ndy;
+
+
+                dy = aScoutState.averageVelocityForward * aScoutState.deltaTime;  // Distance moved forward since last time (use average velocity)
+                dx = aScoutState.averageVelocityRight * aScoutState.deltaTime;    // Distance moved sideways since last time
+
+                mScoutPose.angle += aScoutState.currentVelocityAngularCW * (aScoutState.deltaTime / 2);  // Get half of the angle rotated through since last time
+                                                                                                         // (This is the average angle and is used to make the tracking more accurate)
+                mScoutPose.angle = mScoutPose.angle % (Math.PI * 2);          // ensure to angle is between -2*PI ans 2*PI
+
+                ndx = dx * Math.Cos(mScoutPose.angle) + dy * Math.Sin(mScoutPose.angle);  // Rotate the forward and sideways distances to world coords
+                ndy = -dx * Math.Sin(mScoutPose.angle) + dy * Math.Cos(mScoutPose.angle);
+                mScoutPose.X += ndx;                             // Update the scouts coordinates
+                mScoutPose.Y += ndy;
+
+                mScoutPose.angle += aScoutState.currentVelocityAngularCW * (aScoutState.deltaTime / 2);    // Get the last half of the angle rotated through
+                mScoutPose.angle = mScoutPose.angle % (Math.PI * 2);          // ensure to angle is between -2*PI ans 2*PI
+
+            }
+        }
+
+
+        /// <summary>
+        /// An object in space that is represented in a global mapping.
+        /// </summary>
+        public class GlobalForeignObject
+        {
+            public int mObjectID;
+            public ObjectType mTypeOfObject;
+
+            public double mXCoord = 0;
+            public double mYCoord = 0;
+
+            /// <summary>
+            /// Converts the Relative Foreign Object to a Global Foreign Object using the Scouts current position.
+            /// If the range has not been detected, then a placeholder is inserted in order to make use of the GFO.
+            /// </summary>
+            /// <param name="aRFO"></param>
+            /// <param name="aScoutPose"></param>
+            /// <returns>The converted GFO</returns>
+            public static GlobalForeignObject Convert(RelativeForeignObject aRFO, pose aScoutPose)
+            {
+                GlobalForeignObject lGFO = new GlobalForeignObject();
+
+                lGFO.mObjectID = aRFO.mObjectID;
+                lGFO.mTypeOfObject = aRFO.mTypeOfObject;
+                if (!aRFO.FoundRange)
+                {
+                    switch (aRFO.mTypeOfObject)
+                    {
+                        case ObjectType.Distortion:
+                        case ObjectType.Asteroid:
+                            aRFO.Range = 650;
+                            break;
+                        case ObjectType.BlackHole:
+                            aRFO.Range = 550;
+                            break;
+                        default:
+                            throw new InvalidOperationException();
+                    }
+                }
+
+
+                lGFO.mXCoord = aRFO.Range * Math.Sin(aScoutPose.angle + aRFO.Angle) + aScoutPose.X;
+                lGFO.mYCoord = aRFO.Range * Math.Cos(aScoutPose.angle + aRFO.Angle) + aScoutPose.Y;
+
+                return lGFO;
+            }
+
+        }
+
+
+
+
+
+
+
+
+        public class PID
+        {
+
+
             // constants
             public double mPropConstant, mIntegralConstant, mDerivativeConstant;
 
             /// <summary>
             /// Overall constant, almost always set to 1.
             /// </summary>
-            public double mOverallConstant;     
-                  
+            public double mOverallConstant;
+
             //Error values
             public double mPropError, mIntegralError, mDerivativeError;
 
@@ -507,7 +1081,7 @@ namespace SpaceChaseLib
             public double mLastDerivativeError;
 
             // Limits of the perscribed thrust
-            public double mMaxOut, mMinOut;           
+            public double mMaxOut, mMinOut;
 
             /// <summary>
             /// Initializes the PID's attributes
@@ -515,7 +1089,7 @@ namespace SpaceChaseLib
             /// <param name="aProportionalConstant"></param>
             /// <param name="aIntegralConstant"></param>
             /// <param name="aDerivativeConstant"></param>
-            public void InitializePID(double aMinOut, double aMaxOut, double aProportionalConstant, double aIntegralConstant, double aDerivativeConstant)
+            public void Initialize(double aMinOut, double aMaxOut, double aProportionalConstant, double aIntegralConstant, double aDerivativeConstant)
             {
                 mDerivativeError = 0;
                 mIntegralError = 0;
@@ -527,7 +1101,7 @@ namespace SpaceChaseLib
                 mLastDerivativeError = 0;
                 mMinOut = aMinOut;
                 mMaxOut = aMaxOut;
-                
+
             }
 
             /// <summary>
@@ -540,216 +1114,28 @@ namespace SpaceChaseLib
             {
                 double lThrustPerscription = 0;
 
-                mPropError = aTargetVelocity - aCurrentVelocity; 
-                mDerivativeError = mPropError - mLastDerivativeError;   
-                mLastDerivativeError = mPropError;    
+                mPropError = aTargetVelocity - aCurrentVelocity;
+                mDerivativeError = mPropError - mLastDerivativeError;
+                mLastDerivativeError = mPropError;
 
 
                 lThrustPerscription = (mPropConstant * mPropError + mIntegralConstant * mIntegralError + mDerivativeConstant * mDerivativeError) / mOverallConstant;
 
                 //Cap the thrust perscription
-                if (lThrustPerscription > mMaxOut)      
+                if (lThrustPerscription > mMaxOut)
                     lThrustPerscription = mMaxOut;
                 else if (lThrustPerscription < mMinOut)
                     lThrustPerscription = mMinOut;
 
                 //Get new Integral error and cap it as needed
-                mIntegralError += mPropError;               
-                if (mIntegralError > mMaxOut)        
+                mIntegralError += mPropError;
+                if (mIntegralError > mMaxOut)
                     mIntegralError = mMaxOut;
                 if (mIntegralError < mMinOut)
                     mIntegralError = mMinOut;
 
                 return lThrustPerscription;
             }
-
-
-            
         }
-
-       
-
-        #endregion
-
-        #region PriavteMethods
-
-        private void TrackShip(ScoutStatus aScoutStatus, pose aScoutPose)             // Use the current velocities to track the ship
-        {
-            double dx, dy, ndx, ndy;
-
-
-            dy = aScoutStatus.averageVelocityForward * aScoutStatus.deltaTime;  // Distance moved forward since last time (use average velocity)
-            dx = aScoutStatus.averageVelocityRight * aScoutStatus.deltaTime;    // Distance moved sideways since last time
-
-            aScoutPose.angle += aScoutStatus.currentVelocityAngularCW * (aScoutStatus.deltaTime / 2);  // Get half of the angle rotated through since last time
-                                                                                                       // (This is the average angle and is used to make the tracking more accurate)
-            aScoutPose.angle = aScoutPose.angle % TwoPI;          // ensure to angle is between -2*PI ans 2*PI
-
-            ndx = dx * Math.Cos(aScoutPose.angle) + dy * Math.Sin(aScoutPose.angle);  // Rotate the forward and sideways distances to world coords
-            ndy = -dx * Math.Sin(aScoutPose.angle) + dy * Math.Cos(aScoutPose.angle);
-            aScoutPose.X += ndx;                             // Update the scouts coordinates
-            aScoutPose.Y += ndy;
-
-            aScoutPose.angle += aScoutStatus.currentVelocityAngularCW * (aScoutStatus.deltaTime / 2);    // Get the last half of the angle rotated through
-            aScoutPose.angle = aScoutPose.angle % TwoPI;          // ensure to angle is between -2*PI ans 2*PI
-
-        }
-
-
-        private void MoveToTarget(double targetX, double targetY, double maxVelocity)
-        {
-            double deltaX, deltaY;
-
-            deltaX = targetX - mScoutPose.X;
-            deltaY = targetY - mScoutPose.Y;
-
-            double angleToFace = Math.Atan2(deltaX, deltaY);
-
-            angleToFace = angleToFace % TwoPI;
-
-            double anglebetweenFaceAndCurrentHeading = angleToFace - mScoutPose.angle;
-
-            anglebetweenFaceAndCurrentHeading = anglebetweenFaceAndCurrentHeading % TwoPI;
-
-            if (anglebetweenFaceAndCurrentHeading < -Math.PI)
-                anglebetweenFaceAndCurrentHeading += TwoPI;
-            if (anglebetweenFaceAndCurrentHeading > Math.PI)
-                anglebetweenFaceAndCurrentHeading -= TwoPI;
-
-            double requiredCWVel = anglebetweenFaceAndCurrentHeading / 64;
-
-            if (requiredCWVel > 0.005f)
-                requiredCWVel = 0.005f;
-            if (requiredCWVel < -0.005)
-                requiredCWVel = -0.005;
-
-            gScoutControl.ThrustCW = gRotationalPID.CalculateThrust(requiredCWVel, mScoutStatus.currentVelocityAngularCW);
-
-
-
-            double distance = Math.Sqrt(deltaX * deltaX + deltaY * deltaY); //Distance to waypoint
-            double newdX, newdY;
-            double requiredXVel, requiredYVel;
-
-
-            newdX = distance * Math.Sin(anglebetweenFaceAndCurrentHeading); // Get the sideways distance the scout must move
-            newdY = distance * Math.Cos(anglebetweenFaceAndCurrentHeading); // Get the forward distance the scout must move
-
-            requiredXVel = newdX / 200;     // The required velocity is slower as the scout gets closer to the destination
-            requiredYVel = newdY / 200;
-
-            gScoutControl.ThrustRight = gXPID.CalculateThrust(requiredXVel, mScoutStatus.currentVelocityRight);
-
-            if (requiredYVel > maxVelocity)
-                requiredYVel = maxVelocity;
-
-            gScoutControl.ThrustForward = gYPID.CalculateThrust(requiredYVel, mScoutStatus.currentVelocityForward);
-        }
-
-        private void MoveToWaypoint(double MaxVel)
-        {
-            pose targetPose = new pose();
-
-            targetPose.X = mPath[mPathIndex].X;
-            targetPose.Y = mPath[mPathIndex].Y;
-
-            double deltaX, deltaY;
-
-            deltaX = targetPose.X - mScoutPose.X;
-            deltaY = targetPose.Y - mScoutPose.Y;
-
-            double dist;
-
-            dist = Math.Sqrt(Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2));
-
-            if (dist < 50)
-            {
-                mPathIndex++;
-                if (mPathIndex > 7)
-                    mPathIndex = 0;
-
-
-                targetPose.X = mPath[mPathIndex].X;
-                targetPose.Y = mPath[mPathIndex].Y;
-            }
-            MoveToTarget(targetPose.X, targetPose.Y, MaxVel);
-        }
-
-        private pose GetCoords(double sX, double sY, double sA, double angle, double range)
-        {
-            pose coords;
-
-            coords.angle = 0;
-
-            coords.X = range * Math.Sin(sA + angle) + sX;
-            coords.Y = range * Math.Cos(sA + angle) + sY;
-
-            return (coords);
-        }
-        //
-        private void InTask1()
-        {
-            MoveToWaypoint(0.4);
-
-
-            gScoutControl.MinerOn = false;
-            gScoutControl.ShieldOn = false;
-            gScoutControl.EnergyExtractorOn = false;
-        }
-
-        private pose RotateAboutZ(double x, double y, double angle) // Rotate a vector clockwise through a given angle
-        {
-            pose p;
-            p.angle = angle;
-            p.X = x * Math.Cos(angle) + y * Math.Sin(angle);
-            p.Y = -x * Math.Sin(angle) + y * Math.Cos(angle);
-
-            /*
-             * The following is the rotation for rotating through an anti-clockwise direction and is found in most text books
-             * X' = xCosA - ySinA
-             * Y' = xSinA + yCosA
-             * 
-             * But we are rotating in a clockwise direction so the rotational equations become;
-             * X' = xCosA + ySinA
-             * Y' = -xCosA + ySinA
-            */
-            return p;
-        }
-
-        private void avoidObject()
-        {
-            double range = 0;
-            double thrust = 0;
-            pose athrust = new pose();
-
-            for (int i = 0; i < 11; i++)
-            {
-                if ((mBlackHoles[i].X != 0) && (mBlackHoles[i].Y != 0)) // check for blank or no blackhole
-                {
-                    range = Math.Sqrt(Math.Pow(mScoutPose.X - mBlackHoles[i].X, 2) + Math.Pow(mScoutPose.Y - mBlackHoles[i].Y, 2));
-                    if (range < 200)
-                    {
-                        thrust = 600 / range;
-                        athrust = RotateAboutZ(0, thrust, mBlackHoles[i].angle - Math.PI);
-                        mAvoidThrust.X += athrust.X;
-                        mAvoidThrust.Y += athrust.Y;
-                    }
-                }
-            }
-        }
-
-        public void InitializeControl()
-        {
-            gScoutControl.ThrustCW = 0;
-            gScoutControl.ThrustForward = 0;
-            gScoutControl.ThrustRight = 0;
-            gScoutControl.ShieldOn = false;
-            gScoutControl.MinerOn = false;
-            gScoutControl.EnergyExtractorOn = false;
-        }
-
-        #endregion
-
-
     }
 }

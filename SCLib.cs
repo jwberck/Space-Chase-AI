@@ -84,9 +84,9 @@ namespace SpaceChaseLib
 
     public class pose
     {
-        public double X;
-        public double Y;
-        public double angle;
+        public double X = 0;
+        public double Y = 0;
+        public double angle = 0;
     }
 
 
@@ -114,10 +114,10 @@ namespace SpaceChaseLib
         {
             StudentInfo SD = new StudentInfo();
 
-            SD.studentLastName = "Joordens";    // Replace the string with your last name
-            SD.studentFirstName = "Matthew";  // Replace the string with your first name
-            SD.studentIdNumber = "007";    // Replace the string with your student number
-            SD.studentCourse = "001";    // Replace the string with your course code
+            SD.studentLastName = "Berck";    // Replace the string with your last name
+            SD.studentFirstName = "James";  // Replace the string with your first name
+            SD.studentIdNumber = "216314405";    // Replace the string with your student number
+            SD.studentCourse = "X009S";    // Replace the string with your course code
 
             return SD;
         }
@@ -234,7 +234,7 @@ namespace SpaceChaseLib
         public void Sensors(List<SensorInfo> Tachyon, List<SensorInfo> Mass, List<SensorInfo> RF, List<SensorInfo> Visual, List<SensorInfo> Radar)
         {
             Sensor lSensor = new Sensor(Tachyon, Mass, RF, Visual, Radar);
-            gBrain.mMap.UpdateMap(lSensor.mRelativeForeignObject);
+            gBrain.mMap.UpdateMap(lSensor.RelativeForeignObjects);
         }
 
         public String ScreenMessage()
@@ -343,17 +343,67 @@ namespace SpaceChaseLib
 
         public class Sensor
         {
+            enum ModifiedValue { Angle, Range, Both }
 
-            private Dictionary<int, RelativeForeignObject> RelativeForeignObject = new Dictionary<int, RelativeForeignObject>();
+            private List<RelativeForeignObject> mRelativeForeignObjects = new List<RelativeForeignObject>();
 
-            public Dictionary<int, RelativeForeignObject> mRelativeForeignObject
+            public List<RelativeForeignObject> RelativeForeignObjects
             {
                 get
                 {
-                    return RelativeForeignObject;
+                    return mRelativeForeignObjects;
                 }
             }
 
+            private void AddRelativeForeignObject(SensorInfo aSensorInfo, ModifiedValue aModifiedValue)
+            {
+                bool lAlreadyExists = false;
+                int lIndexOfRFO = 0;
+
+                //Checks to see if the object exists already and assings its index to lIndexOfRFO.
+                foreach (RelativeForeignObject iRelativeForeignObject in mRelativeForeignObjects)
+                {
+
+                    if (iRelativeForeignObject.mObjectID == aSensorInfo.objectID && iRelativeForeignObject.mTypeOfObject == aSensorInfo.objectType)
+                    {
+                        lAlreadyExists = true;
+                        break;
+                    }
+                    lIndexOfRFO++;
+                }
+
+                //Adds a RelativeForeignObject from the given SensorInfo
+                if (lAlreadyExists)
+                {
+                    if (aModifiedValue == ModifiedValue.Range)
+                        mRelativeForeignObjects[lIndexOfRFO].Range = aSensorInfo.range;
+                    else if (aModifiedValue == ModifiedValue.Angle)
+                        mRelativeForeignObjects[lIndexOfRFO].Angle = aSensorInfo.angle;
+                    else
+                    {
+                        mRelativeForeignObjects[lIndexOfRFO].Range = aSensorInfo.range;
+                        mRelativeForeignObjects[lIndexOfRFO].Angle = aSensorInfo.angle;
+                    }
+                }
+                else
+                {
+                    RelativeForeignObject lRFOToBeAdded = new RelativeForeignObject();
+                    lRFOToBeAdded.mTypeOfObject = aSensorInfo.objectType;
+                    lRFOToBeAdded.mObjectID = aSensorInfo.objectID;
+
+                    if (aModifiedValue == ModifiedValue.Range)
+                        lRFOToBeAdded.Range = aSensorInfo.range;
+                    else if (aModifiedValue == ModifiedValue.Angle)
+                        lRFOToBeAdded.Angle = aSensorInfo.angle;
+                    else
+                    {
+                        lRFOToBeAdded.Range = aSensorInfo.range;
+                        lRFOToBeAdded.Angle = aSensorInfo.angle;
+                    }
+
+                    mRelativeForeignObjects.Add(lRFOToBeAdded);
+                }
+            }
 
 
             public Sensor(List<SensorInfo> Tachyon, List<SensorInfo> Mass, List<SensorInfo> RF, List<SensorInfo> Visual, List<SensorInfo> Radar)
@@ -362,68 +412,27 @@ namespace SpaceChaseLib
 
                 foreach (SensorInfo iTachyon in Tachyon)
                 {
-                    if (!mRelativeForeignObject.ContainsKey(iTachyon.objectID))
-                    {
-                        mRelativeForeignObject[iTachyon.objectID] = new RelativeForeignObject();
-                        mRelativeForeignObject[iTachyon.objectID].mTypeOfObject = iTachyon.objectType;
-                        mRelativeForeignObject[iTachyon.objectID].mObjectID = iTachyon.objectID;
-
-                    }
-
-                    mRelativeForeignObject[iTachyon.objectID].Range = iTachyon.range;
+                    AddRelativeForeignObject(iTachyon, ModifiedValue.Range);
                 }
 
                 foreach (SensorInfo iMass in Mass)
                 {
-                    if (!mRelativeForeignObject.ContainsKey(iMass.objectID))
-                    {
-                        mRelativeForeignObject[iMass.objectID] = new RelativeForeignObject();
-                        mRelativeForeignObject[iMass.objectID].mTypeOfObject = iMass.objectType;
-                        mRelativeForeignObject[iMass.objectID].mObjectID = iMass.objectID;
-
-                    }
-
-                    mRelativeForeignObject[iMass.objectID].Range = iMass.range;
+                    AddRelativeForeignObject(iMass, ModifiedValue.Range);
                 }
 
                 foreach (SensorInfo iRF in RF)
                 {
-                    if (!mRelativeForeignObject.ContainsKey(iRF.objectID))
-                    {
-                        mRelativeForeignObject[iRF.objectID] = new RelativeForeignObject();
-                        mRelativeForeignObject[iRF.objectID].mTypeOfObject = iRF.objectType;
-                        mRelativeForeignObject[iRF.objectID].mObjectID = iRF.objectID;
-
-                    }
-
-                    mRelativeForeignObject[iRF.objectID].Angle = iRF.angle;
+                    AddRelativeForeignObject(iRF, ModifiedValue.Angle);
                 }
 
                 foreach (SensorInfo iVisual in Visual)
                 {
-                    if (!mRelativeForeignObject.ContainsKey(iVisual.objectID))
-                    {
-                        mRelativeForeignObject[iVisual.objectID] = new RelativeForeignObject();
-                        mRelativeForeignObject[iVisual.objectID].mTypeOfObject = iVisual.objectType;
-                        mRelativeForeignObject[iVisual.objectID].mObjectID = iVisual.objectID;
-
-                    }
-
-                    mRelativeForeignObject[iVisual.objectID].Angle = iVisual.angle;
+                    AddRelativeForeignObject(iVisual, ModifiedValue.Angle);
                 }
 
                 foreach (SensorInfo iRadar in Radar)
                 {
-                    if (!mRelativeForeignObject.ContainsKey(iRadar.objectID))
-                    {
-                        mRelativeForeignObject[iRadar.objectID] = new RelativeForeignObject();
-                        mRelativeForeignObject[iRadar.objectID].mTypeOfObject = iRadar.objectType;
-                        mRelativeForeignObject[iRadar.objectID].mObjectID = iRadar.objectID;
-
-                    }
-
-                    mRelativeForeignObject[iRadar.objectID].Angle = iRadar.angle;
-                    mRelativeForeignObject[iRadar.objectID].Range = iRadar.range;
+                    AddRelativeForeignObject(iRadar, ModifiedValue.Both);
 
                 }
             }
@@ -561,7 +570,6 @@ namespace SpaceChaseLib
 
 
             public Navigation mNavigation = new Navigation();
-            pose mAvoidThrust = new pose();
             report mReportObject = new report();
 
             //hacks
@@ -597,8 +605,6 @@ namespace SpaceChaseLib
             {
 
                 mMap.TrackShip(mScoutState);
-                mAvoidThrust.X = 0;
-                mAvoidThrust.Y = 0;
                 switch (task)
                 {
                     case 1:
@@ -615,18 +621,19 @@ namespace SpaceChaseLib
             private void InTask1()
             {
 
-                if (mMap.mBlackHoles.Count == 1)
+                if (mMap.mBlackHoles.Count >= 1)
                 {
-                    pose lPose = new pose();
-                    lPose.X = mMap.mBlackHoles.First().Value.mXCoord;
-                    lPose.Y = mMap.mBlackHoles.First().Value.mYCoord;
+                    pose lBlackHolePose = new pose();
+                    lBlackHolePose.X = mMap.mBlackHoles.First().Value.mXCoord;
+                    lBlackHolePose.Y = mMap.mBlackHoles.First().Value.mYCoord;
 
-                    mNavigation.ReplaceWaypointAtFront(lPose);
 
-                    if (mMap.CalculateDistanceFromScout(lPose.X, lPose.Y) < 100)
+                    //mNavigation.ReplaceWaypointAtFront(lPose);
+                    mNavigation.AddWaypointToFront(lBlackHolePose);
+                    if (mMap.CalculateDistanceFromScout(lBlackHolePose.X, lBlackHolePose.Y) < 100)
                     {
-                        mReportObject.X = lPose.X;
-                        mReportObject.Y = lPose.Y;
+                        mReportObject.X = lBlackHolePose.X;
+                        mReportObject.Y = lBlackHolePose.Y;
                         mReportObject.complete = true;
                         return;
                     }
@@ -668,9 +675,10 @@ namespace SpaceChaseLib
                     mNavigation.MoveToWaypoint(0.4, 50);
                 }
 
-                avoidBlackHole();
-                mScoutThrustControls.ThrustRight += mAvoidThrust.X;
-                mScoutThrustControls.ThrustForward += mAvoidThrust.Y;
+                //Gets the avoidance thrust needed and adds it to the scout thrust.
+                pose lBlackHoleAvoidThrust = getBlackHoleAvoidThrust();
+                mScoutThrustControls.ThrustRight += lBlackHoleAvoidThrust.X;
+                mScoutThrustControls.ThrustForward += lBlackHoleAvoidThrust.Y;
             }
 
             private void InTask3()
@@ -734,9 +742,10 @@ namespace SpaceChaseLib
                     mNavigation.MoveToWaypoint(0.4, 50);
                 }
 
-                avoidBlackHole();
-                mScoutThrustControls.ThrustRight += mAvoidThrust.X;
-                mScoutThrustControls.ThrustForward += mAvoidThrust.Y;
+                //Gets the avoidance thrust needed and adds it to the scout thrust.
+                pose lBlackHoleAvoidThrust = getBlackHoleAvoidThrust();
+                mScoutThrustControls.ThrustRight += lBlackHoleAvoidThrust.X;
+                mScoutThrustControls.ThrustForward += lBlackHoleAvoidThrust.Y;
             }
 
 
@@ -802,33 +811,42 @@ namespace SpaceChaseLib
 
 
 
-
-            private void avoidBlackHole()
+            /// <summary>
+            /// Calculates the thrust needed to avoid any number of black holes close to the scout.
+            /// </summary>
+            /// <returns>Returns the calculated thrust needed to flee from the black hole.</returns>
+            private pose getBlackHoleAvoidThrust()
             {
                 double lRangeToObject = 0;
                 double thrust = 0;
-                pose lAvoidanceThrust = new pose();
+                pose lTotalAvoidanceThrust = new pose();
 
                 foreach (KeyValuePair<int, GlobalForeignObject> iBlackHoleValuePair in mMap.mBlackHoles)
                 {
+                    //Gets the range to the object
                     lRangeToObject = mMap.CalculateDistanceFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
+
+                    // if scout is close enough, act on avoid.
                     if (lRangeToObject < 200)
                     {
                         thrust = 600 / lRangeToObject;
 
                         double lAngleToBlackHole = mMap.CalculateAngleFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
 
-                        lAvoidanceThrust = RotateAboutZ(0, thrust, lAngleToBlackHole - Math.PI);
-                        mAvoidThrust.X += lAvoidanceThrust.X;
-                        mAvoidThrust.Y += lAvoidanceThrust.Y;
+                        //adds the flee thrust to the total avoidance thrust
+                        pose lTempAvoidThrust = GetFleeThrust(0, thrust, lAngleToBlackHole - Math.PI);
+                        lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
+                        lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
+
                     }
 
                 }
+                return lTotalAvoidanceThrust;
             }
 
 
 
-            private pose RotateAboutZ(double x, double y, double angle) // Rotate a vector clockwise through a given angle
+            private pose GetFleeThrust(double x, double y, double angle) // Rotate a vector clockwise through a given angle
             {
                 pose p = new pose();
                 p.angle = angle;
@@ -966,6 +984,11 @@ namespace SpaceChaseLib
                     Console.WriteLine("ERROR: Attempting to replace nonexistant waypoint!");
             }
 
+            /// <summary>
+            /// Moves the scout to a waypoint
+            /// </summary>
+            /// <param name="MaxVel"></param>
+            /// <param name="aAccuracy"></param>
             public void MoveToWaypoint(double MaxVel, double aAccuracy)
             {
                 //Makes sure that momevemnt is not attempted until a path exists.
@@ -1078,26 +1101,26 @@ namespace SpaceChaseLib
             /// Updates the map every frame.
             /// </summary>
             /// <param name="aRelativeForeignObjects"></param>
-            public void UpdateMap(Dictionary<int, RelativeForeignObject> aRelativeForeignObjects)
+            public void UpdateMap(List<RelativeForeignObject> aRelativeForeignObjects)
             {
-                foreach (KeyValuePair<int, RelativeForeignObject> iKeyValue in aRelativeForeignObjects)
+                foreach (RelativeForeignObject iRelativeForeignObject in aRelativeForeignObjects)
                 {
-                    switch (iKeyValue.Value.mTypeOfObject)
+                    switch (iRelativeForeignObject.mTypeOfObject)
                     {
                         case ObjectType.BlackHole:
-                            mBlackHoles[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            mBlackHoles[iRelativeForeignObject.mObjectID] = GlobalForeignObject.Convert(iRelativeForeignObject, mScoutPose);
                             break;
                         case ObjectType.Asteroid:
-                            mAsteroids[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            mAsteroids[iRelativeForeignObject.mObjectID] = GlobalForeignObject.Convert(iRelativeForeignObject, mScoutPose);
                             break;
                         case ObjectType.Distortion:
-                            mDistortions[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            mDistortions[iRelativeForeignObject.mObjectID] = GlobalForeignObject.Convert(iRelativeForeignObject, mScoutPose);
                             break;
                         case ObjectType.CombatDrone:
-                            mCombatDrones[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            mCombatDrones[iRelativeForeignObject.mObjectID] = GlobalForeignObject.Convert(iRelativeForeignObject, mScoutPose);
                             break;
                         case ObjectType.Factory:
-                            mFactoryDrones[iKeyValue.Key] = GlobalForeignObject.Convert(iKeyValue.Value, mScoutPose);
+                            mFactoryDrones[iRelativeForeignObject.mObjectID] = GlobalForeignObject.Convert(iRelativeForeignObject, mScoutPose);
                             break;
 
                     }

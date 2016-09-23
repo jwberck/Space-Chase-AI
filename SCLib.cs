@@ -234,7 +234,7 @@ namespace SpaceChaseLib
         public void Sensors(List<SensorInfo> Tachyon, List<SensorInfo> Mass, List<SensorInfo> RF, List<SensorInfo> Visual, List<SensorInfo> Radar)
         {
             Sensor lSensor = new Sensor(Tachyon, Mass, RF, Visual, Radar);
-            gBrain.mMap.UpdateMap(lSensor.mRelativeForeignObject);
+            gBrain.mMap.UpdateMap(lSensor.RelativeForeignObject);
         }
 
         public String ScreenMessage()
@@ -344,13 +344,13 @@ namespace SpaceChaseLib
         public class Sensor
         {
 
-            private Dictionary<int, RelativeForeignObject> RelativeForeignObject = new Dictionary<int, RelativeForeignObject>();
+            private Dictionary<int, RelativeForeignObject> mRelativeForeignObject = new Dictionary<int, RelativeForeignObject>();
 
-            public Dictionary<int, RelativeForeignObject> mRelativeForeignObject
+            public Dictionary<int, RelativeForeignObject> RelativeForeignObject
             {
                 get
                 {
-                    return RelativeForeignObject;
+                    return mRelativeForeignObject;
                 }
             }
 
@@ -614,16 +614,17 @@ namespace SpaceChaseLib
 
                 if (mMap.mBlackHoles.Count >= 1)
                 {
-                    pose lPose = new pose();
-                    lPose.X = mMap.mBlackHoles.First().Value.mXCoord;
-                    lPose.Y = mMap.mBlackHoles.First().Value.mYCoord;
+                    pose lBlackHolePose = new pose();
+                    lBlackHolePose.X = mMap.mBlackHoles.First().Value.mXCoord;
+                    lBlackHolePose.Y = mMap.mBlackHoles.First().Value.mYCoord;
 
-                    mNavigation.ReplaceWaypointAtFront(lPose);
 
-                    if (mMap.CalculateDistanceFromScout(lPose.X, lPose.Y) < 100)
+                    //mNavigation.ReplaceWaypointAtFront(lPose);
+                    mNavigation.AddWaypointToFront(lBlackHolePose);
+                    if (mMap.CalculateDistanceFromScout(lBlackHolePose.X, lBlackHolePose.Y) < 100)
                     {
-                        mReportObject.X = lPose.X;
-                        mReportObject.Y = lPose.Y;
+                        mReportObject.X = lBlackHolePose.X;
+                        mReportObject.Y = lBlackHolePose.Y;
                         mReportObject.complete = true;
                         return;
                     }
@@ -974,6 +975,11 @@ namespace SpaceChaseLib
                     Console.WriteLine("ERROR: Attempting to replace nonexistant waypoint!");
             }
 
+            /// <summary>
+            /// Moves the scout to a waypoint
+            /// </summary>
+            /// <param name="MaxVel"></param>
+            /// <param name="aAccuracy"></param>
             public void MoveToWaypoint(double MaxVel, double aAccuracy)
             {
                 //Makes sure that momevemnt is not attempted until a path exists.

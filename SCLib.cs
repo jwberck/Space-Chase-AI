@@ -84,9 +84,9 @@ namespace SpaceChaseLib
 
     public class pose
     {
-        public double X;
-        public double Y;
-        public double angle;
+        public double X = 0;
+        public double Y = 0;
+        public double angle = 0;
     }
 
 
@@ -114,10 +114,10 @@ namespace SpaceChaseLib
         {
             StudentInfo SD = new StudentInfo();
 
-            SD.studentLastName = "Joordens";    // Replace the string with your last name
-            SD.studentFirstName = "Matthew";  // Replace the string with your first name
-            SD.studentIdNumber = "007";    // Replace the string with your student number
-            SD.studentCourse = "001";    // Replace the string with your course code
+            SD.studentLastName = "Berck";    // Replace the string with your last name
+            SD.studentFirstName = "James";  // Replace the string with your first name
+            SD.studentIdNumber = "216314405";    // Replace the string with your student number
+            SD.studentCourse = "X009S";    // Replace the string with your course code
 
             return SD;
         }
@@ -561,7 +561,6 @@ namespace SpaceChaseLib
 
 
             public Navigation mNavigation = new Navigation();
-            pose mAvoidThrust = new pose();
             report mReportObject = new report();
 
             //hacks
@@ -597,8 +596,6 @@ namespace SpaceChaseLib
             {
 
                 mMap.TrackShip(mScoutState);
-                mAvoidThrust.X = 0;
-                mAvoidThrust.Y = 0;
                 switch (task)
                 {
                     case 1:
@@ -615,7 +612,7 @@ namespace SpaceChaseLib
             private void InTask1()
             {
 
-                if (mMap.mBlackHoles.Count == 1)
+                if (mMap.mBlackHoles.Count >= 1)
                 {
                     pose lPose = new pose();
                     lPose.X = mMap.mBlackHoles.First().Value.mXCoord;
@@ -668,9 +665,10 @@ namespace SpaceChaseLib
                     mNavigation.MoveToWaypoint(0.4, 50);
                 }
 
-                avoidBlackHole();
-                mScoutThrustControls.ThrustRight += mAvoidThrust.X;
-                mScoutThrustControls.ThrustForward += mAvoidThrust.Y;
+                //Gets the avoidance thrust needed and adds it to the scout thrust.
+                pose lBlackHoleAvoidThrust = getBlackHoleAvoidThrust();
+                mScoutThrustControls.ThrustRight += lBlackHoleAvoidThrust.X;
+                mScoutThrustControls.ThrustForward += lBlackHoleAvoidThrust.Y;
             }
 
             private void InTask3()
@@ -734,9 +732,10 @@ namespace SpaceChaseLib
                     mNavigation.MoveToWaypoint(0.4, 50);
                 }
 
-                avoidBlackHole();
-                mScoutThrustControls.ThrustRight += mAvoidThrust.X;
-                mScoutThrustControls.ThrustForward += mAvoidThrust.Y;
+                //Gets the avoidance thrust needed and adds it to the scout thrust.
+                pose lBlackHoleAvoidThrust = getBlackHoleAvoidThrust();
+                mScoutThrustControls.ThrustRight += lBlackHoleAvoidThrust.X;
+                mScoutThrustControls.ThrustForward += lBlackHoleAvoidThrust.Y;
             }
 
 
@@ -802,33 +801,42 @@ namespace SpaceChaseLib
 
 
 
-
-            private void avoidBlackHole()
+            /// <summary>
+            /// Calculates the thrust needed to avoid any number of black holes close to the scout.
+            /// </summary>
+            /// <returns>Returns the calculated thrust needed to flee from the black hole.</returns>
+            private pose getBlackHoleAvoidThrust()
             {
                 double lRangeToObject = 0;
                 double thrust = 0;
-                pose lAvoidanceThrust = new pose();
+                pose lTotalAvoidanceThrust = new pose();
 
                 foreach (KeyValuePair<int, GlobalForeignObject> iBlackHoleValuePair in mMap.mBlackHoles)
                 {
+                    //Gets the range to the object
                     lRangeToObject = mMap.CalculateDistanceFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
+
+                    // if scout is close enough, act on avoid.
                     if (lRangeToObject < 200)
                     {
                         thrust = 600 / lRangeToObject;
 
                         double lAngleToBlackHole = mMap.CalculateAngleFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
 
-                        lAvoidanceThrust = RotateAboutZ(0, thrust, lAngleToBlackHole - Math.PI);
-                        mAvoidThrust.X += lAvoidanceThrust.X;
-                        mAvoidThrust.Y += lAvoidanceThrust.Y;
+                        //adds the flee thrust to the total avoidance thrust
+                        pose lTempAvoidThrust = GetFleeThrust(0, thrust, lAngleToBlackHole - Math.PI);
+                        lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
+                        lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
+
                     }
 
                 }
+                return lTotalAvoidanceThrust;
             }
 
 
 
-            private pose RotateAboutZ(double x, double y, double angle) // Rotate a vector clockwise through a given angle
+            private pose GetFleeThrust(double x, double y, double angle) // Rotate a vector clockwise through a given angle
             {
                 pose p = new pose();
                 p.angle = angle;

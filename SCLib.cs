@@ -760,7 +760,7 @@ namespace SpaceChaseLib
 
                 }
 
-                mNavigation.MoveToWaypoint(0.4, 50);
+                mNavigation.MoveToWaypoint(0.4, 200);
                 mNavigation.AvoidObjects();
             }
 
@@ -927,29 +927,34 @@ namespace SpaceChaseLib
 
             public void CreateBoxPath()
             {
-                for (int i = 0; i < 8; i++)
+                for (int i = 0; i < 5; i++)
                 {
                     pose lPose = new pose();
+                    switch (i)
+                    {
+                        case 0:
+                            lPose.X = 0;
+                            lPose.Y = 1000;
+                            break;
+                        case 1:
+                            lPose.X = 1000;
+                            lPose.Y = 1000;
+                            break;
+                        case 2:
+                            lPose.X = 1000;
+                            lPose.Y = -1000;
+                            break;
+                        case 3:
+                            lPose.X = -1000;
+                            lPose.Y = -1000;
+                            break;
+                        case 4:
+                            lPose.X = -1000;
+                            lPose.Y = 1000;
+                            break;
+                    }
                     mPath.Add(lPose);
                 }
-
-                //will get an angle on every object
-                mPath[0].X = 0;
-                mPath[0].Y = 1000;
-
-                mPath[1].X = 1000;
-                mPath[1].Y = 1000;
-
-                mPath[2].X = 1000;
-                mPath[2].Y = -1000;
-
-                mPath[3].X = -1000;
-                mPath[3].Y = -1000;
-
-                mPath[4].X = -1000;
-                mPath[4].Y = 1000;
-
-
             }
 
 
@@ -969,10 +974,11 @@ namespace SpaceChaseLib
 
             public void ReplaceWaypointAtFront(pose aWaypoint)
             {
-                if (mPath.Count > 0)
-                    mPath[0] = aWaypoint;
-                else
-                    Console.WriteLine("ERROR: Attempting to replace nonexistant waypoint!");
+                if (mPath.Count < 1)
+                    CreateBoxPath();
+
+                mPath[0] = aWaypoint;
+
             }
 
             /// <summary>
@@ -983,22 +989,20 @@ namespace SpaceChaseLib
             public void MoveToWaypoint(double MaxVel, double aAccuracy)
             {
                 //Makes sure that momevemnt is not attempted until a path exists.
-                try
+                if (mPath.Count < 2)
                 {
-
-                    double dist = mMap.CalculateDistanceFromScout(mPath[0].X, mPath[0].Y);
-
-                    //if close enough, then go to the next waypoint
-                    if (dist < aAccuracy)
-                    {
-                        mPath.RemoveAt(0);
-                    }
-                    MoveToTarget(mPath[0].X, mPath[0].Y, MaxVel);
+                    CreateBoxPath();
                 }
-                catch (Exception ex)
+
+                double dist = mMap.CalculateDistanceFromScout(mPath[0].X, mPath[0].Y);
+
+                //if close enough, then go to the next waypoint
+                if (dist < aAccuracy)
                 {
-                    Console.Write(ex.Message);
+                    mPath.RemoveAt(0);
                 }
+                MoveToTarget(mPath[0].X, mPath[0].Y, MaxVel);
+
 
 
             }
@@ -1008,6 +1012,9 @@ namespace SpaceChaseLib
 
             private void MoveToTarget(double targetX, double targetY, double maxVelocity)
             {
+                //Lower means more sharp.
+                double AngularVelSharpness = 40;
+
                 double TwoPI = Math.PI * 2;
 
                 double deltaX = targetX - mMap.mScoutPose.X;
@@ -1026,10 +1033,10 @@ namespace SpaceChaseLib
                 else if (anglebetweenFaceAndCurrentHeading > Math.PI)
                     anglebetweenFaceAndCurrentHeading -= TwoPI;
 
-                double requiredCWVel = anglebetweenFaceAndCurrentHeading / 64;
+                double requiredCWVel = anglebetweenFaceAndCurrentHeading / AngularVelSharpness;
 
-                if (requiredCWVel > 0.005f)
-                    requiredCWVel = 0.005f;
+                if (requiredCWVel > 0.005)
+                    requiredCWVel = 0.005;
                 else if (requiredCWVel < -0.005)
                     requiredCWVel = -0.005;
 
@@ -1054,6 +1061,12 @@ namespace SpaceChaseLib
                     requiredYVel = maxVelocity;
 
                 mScoutThrustControls.ThrustForward = mYPID.CalculateThrust(requiredYVel, mScoutState.currentVelocityForward);
+            }
+
+
+            public void SetupJavelin()
+            {
+
             }
 
 
@@ -1118,7 +1131,7 @@ namespace SpaceChaseLib
                     lRangeToObject = mMap.CalculateDistanceFromScout(iCombatDronePair.Value.mXCoord, iCombatDronePair.Value.mYCoord);
 
                     // if scout is close enough, act on avoid.
-                    if (lRangeToObject < 300)
+                    if (lRangeToObject < 400)
                     {
                         thrust = 600 / lRangeToObject;
 
@@ -1129,13 +1142,54 @@ namespace SpaceChaseLib
                         lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
 
                         //Only apply y thrust if the black hole is very close
-                        if (lRangeToObject < 200)
+                        if (lRangeToObject < 100)
                             lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
 
                     }
 
                 }
                 return lTotalAvoidanceThrust;
+            }
+
+            /// <summary>
+            /// Gets the thrust value needed to avoid walls
+            /// </summary>
+            /// <param name="aAvoidDistance">The distance the scout must be within in order to get an avoidance value.</param>
+            /// <param name="aCriticalDistance">The distance the scout must be within in order to be considered critical.</param>
+            /// <param name="aThrustToDistanceStrength">A constant value that determines the thrust output based on the distance from the object. Higher == more thrust</param>
+            /// <returns>Avoidance thrust for walls.</returns>
+            private pose getWallAvoidThrust(double aAvoidDistance, double aCriticalDistance, double aThrustToDistanceStrength)
+            {
+                double lRangeToObject = 0;
+                double thrust = 0;
+                pose lTotalAvoidanceThrust = new pose();
+
+                double lMaxMapSize = 1500;
+                double lMinMapSize = -1500;
+
+                double lDistanceToPosXWall = lMaxMapSize - mMap.mScoutPose.X;
+                double lDistanceToNegXWall = -(lMinMapSize - mMap.mScoutPose.X);
+
+                double lDistanceToPosYWall = lMaxMapSize - mMap.mScoutPose.Y;
+                double lDistanceToNegYWall = -(lMinMapSize - mMap.mScoutPose.Y);
+
+                //if the scout is within lAvoidDistance of the Pos X wall, take action.
+                if (lDistanceToPosXWall < aAvoidDistance)
+                {
+
+                    thrust += aThrustToDistanceStrength / lDistanceToPosXWall;
+                    double lAngleToWall = mMap.CalculateAngleFromScout(lMaxMapSize, mMap.mScoutPose.Y);
+
+                    //adds the flee thrust to the total avoidance thrust
+                    pose lTempAvoidThrust = GetFleeThrust(0, thrust, lAngleToWall - Math.PI);
+                    lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
+
+                    if (lDistanceToPosXWall < aCriticalDistance)
+                        lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
+
+                }
+                //UNFINISHED METHOD
+                return null;
             }
 
 
@@ -1191,6 +1245,7 @@ namespace SpaceChaseLib
                 mDistortions.Clear();
                 mCombatDrones.Clear();
                 mFactoryDrones.Clear();
+
             }
 
             /// <summary>

@@ -594,6 +594,9 @@ namespace SpaceChaseLib
                     case 1:
                     case 2:
                     case 3:
+                    case 4:
+                    case 5:
+                    case 6:
                         mNavigation.CreateBoxPath();
                         break;
 
@@ -619,6 +622,10 @@ namespace SpaceChaseLib
                     case 4:
                         InTask4();
                         break;
+                    case 5:
+                        InTask5();
+                        break;
+
                 }
             }
             private void InTask1()
@@ -748,9 +755,19 @@ namespace SpaceChaseLib
 
             private void InTask4()
             {
+                if (mMap.mCombatDrones.Count >= 1)
+                {
 
+                }
+
+                mNavigation.MoveToWaypoint(0.4, 50);
+                mNavigation.AvoidObjects();
             }
 
+            private void InTask5()
+            {
+                InTask4();
+            }
 
 
             public void EndTask(int task, bool IsScoutAlive)
@@ -1046,6 +1063,10 @@ namespace SpaceChaseLib
                 pose lBlackHoleAvoidThrust = getBlackHoleAvoidThrust();
                 mScoutThrustControls.ThrustRight += lBlackHoleAvoidThrust.X;
                 mScoutThrustControls.ThrustForward += lBlackHoleAvoidThrust.Y;
+
+                pose lCombatDroneAvoidThrust = getCombatDroneAvoidThrust();
+                mScoutThrustControls.ThrustRight += lCombatDroneAvoidThrust.X;
+                mScoutThrustControls.ThrustForward += lCombatDroneAvoidThrust.Y;
             }
 
 
@@ -1074,7 +1095,10 @@ namespace SpaceChaseLib
                         //adds the flee thrust to the total avoidance thrust
                         pose lTempAvoidThrust = GetFleeThrust(0, thrust, lAngleToBlackHole - Math.PI);
                         lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
-                        lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
+
+                        //Only apply y thrust if the black hole is very close
+                        if (lRangeToObject < 100)
+                            lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
 
                     }
 
@@ -1082,6 +1106,37 @@ namespace SpaceChaseLib
                 return lTotalAvoidanceThrust;
             }
 
+            private pose getCombatDroneAvoidThrust()
+            {
+                double lRangeToObject = 0;
+                double thrust = 0;
+                pose lTotalAvoidanceThrust = new pose();
+
+                foreach (KeyValuePair<int, GlobalForeignObject> iCombatDronePair in mMap.mCombatDrones)
+                {
+                    //Gets the range to the object
+                    lRangeToObject = mMap.CalculateDistanceFromScout(iCombatDronePair.Value.mXCoord, iCombatDronePair.Value.mYCoord);
+
+                    // if scout is close enough, act on avoid.
+                    if (lRangeToObject < 300)
+                    {
+                        thrust = 600 / lRangeToObject;
+
+                        double lAngleToCombatDrone = mMap.CalculateAngleFromScout(iCombatDronePair.Value.mXCoord, iCombatDronePair.Value.mYCoord);
+
+                        //adds the flee thrust to the total avoidance thrust
+                        pose lTempAvoidThrust = GetFleeThrust(0, thrust, lAngleToCombatDrone - Math.PI);
+                        lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
+
+                        //Only apply y thrust if the black hole is very close
+                        if (lRangeToObject < 200)
+                            lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
+
+                    }
+
+                }
+                return lTotalAvoidanceThrust;
+            }
 
 
             private pose GetFleeThrust(double x, double y, double angle) // Rotate a vector clockwise through a given angle
@@ -1102,6 +1157,9 @@ namespace SpaceChaseLib
                 */
                 return p;
             }
+
+
+
 
         }
 

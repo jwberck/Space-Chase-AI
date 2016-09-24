@@ -616,6 +616,9 @@ namespace SpaceChaseLib
                     case 3:
                         InTask3();
                         break;
+                    case 4:
+                        InTask4();
+                        break;
                 }
             }
             private void InTask1()
@@ -748,6 +751,11 @@ namespace SpaceChaseLib
                 mScoutThrustControls.ThrustForward += lBlackHoleAvoidThrust.Y;
             }
 
+            private void InTask4()
+            {
+
+            }
+
 
 
             public void EndTask(int task, bool IsScoutAlive)
@@ -772,12 +780,36 @@ namespace SpaceChaseLib
             }
             public String ScreenMessage()
             {
-                string strMessage;
+                StringBuilder SBMessage = new StringBuilder();
 
-                strMessage = "Ship X :" + mMap.mScoutPose.X.ToString() + "\nShip Y : " + mMap.mScoutPose.Y.ToString() + "\nShip A : " + mMap.mScoutPose.angle.ToString();
-                //strMessage += "\nBH X = " + mBlackHolePose.X.ToString() + "\nBH Y = " + mBlackHolePose.Y.ToString();
+                SBMessage.Append("Ship X :" + mMap.mScoutPose.X.ToString() + "\nShip Y : " + mMap.mScoutPose.Y.ToString() + "\nShip A : " + mMap.mScoutPose.angle.ToString());
 
-                return strMessage;
+                foreach (KeyValuePair<int, GlobalForeignObject> iGFOKeyValue in mMap.mBlackHoles)
+                {
+                    SBMessage.Append("\n Blackhole " + iGFOKeyValue.Key.ToString() + ": ( " + iGFOKeyValue.Value.mXCoord.ToString() + " , " + iGFOKeyValue.Value.mYCoord.ToString() + " )");
+                }
+
+                foreach (KeyValuePair<int, GlobalForeignObject> iGFOKeyValue in mMap.mAsteroids)
+                {
+                    SBMessage.Append("\n Asteroid " + iGFOKeyValue.Key.ToString() + ": ( " + iGFOKeyValue.Value.mXCoord.ToString() + " , " + iGFOKeyValue.Value.mYCoord.ToString() + " )");
+                }
+
+                foreach (KeyValuePair<int, GlobalForeignObject> iGFOKeyValue in mMap.mDistortions)
+                {
+                    SBMessage.Append("\n Distortion " + iGFOKeyValue.Key.ToString() + ": ( " + iGFOKeyValue.Value.mXCoord.ToString() + " , " + iGFOKeyValue.Value.mYCoord.ToString() + " )");
+                }
+
+                foreach (KeyValuePair<int, GlobalForeignObject> iGFOKeyValue in mMap.mCombatDrones)
+                {
+                    SBMessage.Append("\n Combat Drone " + iGFOKeyValue.Key.ToString() + ": ( " + iGFOKeyValue.Value.mXCoord.ToString() + " , " + iGFOKeyValue.Value.mYCoord.ToString() + " )");
+                }
+
+                foreach (KeyValuePair<int, GlobalForeignObject> iGFOKeyValue in mMap.mFactoryDrones)
+                {
+                    SBMessage.Append("\n Factory Drone " + iGFOKeyValue.Key.ToString() + ": ( " + iGFOKeyValue.Value.mXCoord.ToString() + " , " + iGFOKeyValue.Value.mYCoord.ToString() + " )");
+                }
+
+                return SBMessage.ToString();
             }
 
             /// <summary>

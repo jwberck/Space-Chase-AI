@@ -678,10 +678,7 @@ namespace SpaceChaseLib
                     mNavigation.MoveToWaypoint(0.4, 50);
                 }
 
-                //Gets the avoidance thrust needed and adds it to the scout thrust.
-                pose lBlackHoleAvoidThrust = getBlackHoleAvoidThrust();
-                mScoutThrustControls.ThrustRight += lBlackHoleAvoidThrust.X;
-                mScoutThrustControls.ThrustForward += lBlackHoleAvoidThrust.Y;
+                mNavigation.AvoidObjects();
             }
 
             private void InTask3()
@@ -744,11 +741,9 @@ namespace SpaceChaseLib
                 {
                     mNavigation.MoveToWaypoint(0.4, 50);
                 }
+                mNavigation.AvoidObjects();
 
-                //Gets the avoidance thrust needed and adds it to the scout thrust.
-                pose lBlackHoleAvoidThrust = getBlackHoleAvoidThrust();
-                mScoutThrustControls.ThrustRight += lBlackHoleAvoidThrust.X;
-                mScoutThrustControls.ThrustForward += lBlackHoleAvoidThrust.Y;
+
             }
 
             private void InTask4()
@@ -843,59 +838,6 @@ namespace SpaceChaseLib
 
 
 
-            /// <summary>
-            /// Calculates the thrust needed to avoid any number of black holes close to the scout.
-            /// </summary>
-            /// <returns>Returns the calculated thrust needed to flee from the black hole.</returns>
-            private pose getBlackHoleAvoidThrust()
-            {
-                double lRangeToObject = 0;
-                double thrust = 0;
-                pose lTotalAvoidanceThrust = new pose();
-
-                foreach (KeyValuePair<int, GlobalForeignObject> iBlackHoleValuePair in mMap.mBlackHoles)
-                {
-                    //Gets the range to the object
-                    lRangeToObject = mMap.CalculateDistanceFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
-
-                    // if scout is close enough, act on avoid.
-                    if (lRangeToObject < 200)
-                    {
-                        thrust = 600 / lRangeToObject;
-
-                        double lAngleToBlackHole = mMap.CalculateAngleFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
-
-                        //adds the flee thrust to the total avoidance thrust
-                        pose lTempAvoidThrust = GetFleeThrust(0, thrust, lAngleToBlackHole - Math.PI);
-                        lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
-                        lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
-
-                    }
-
-                }
-                return lTotalAvoidanceThrust;
-            }
-
-
-
-            private pose GetFleeThrust(double x, double y, double angle) // Rotate a vector clockwise through a given angle
-            {
-                pose p = new pose();
-                p.angle = angle;
-                p.X = x * Math.Cos(angle) + y * Math.Sin(angle);
-                p.Y = -x * Math.Sin(angle) + y * Math.Cos(angle);
-
-                /*
-                 * The following is the rotation for rotating through an anti-clockwise direction and is found in most text books
-                 * X' = xCosA - ySinA
-                 * Y' = xSinA + yCosA
-                 * 
-                 * But we are rotating in a clockwise direction so the rotational equations become;
-                 * X' = xCosA + ySinA
-                 * Y' = -xCosA + ySinA
-                */
-                return p;
-            }
         }
 
 
@@ -1095,6 +1037,70 @@ namespace SpaceChaseLib
                     requiredYVel = maxVelocity;
 
                 mScoutThrustControls.ThrustForward = mYPID.CalculateThrust(requiredYVel, mScoutState.currentVelocityForward);
+            }
+
+
+            public void AvoidObjects()
+            {
+                //Gets the avoidance thrust needed for black holes and adds it to the scout thrust.
+                pose lBlackHoleAvoidThrust = getBlackHoleAvoidThrust();
+                mScoutThrustControls.ThrustRight += lBlackHoleAvoidThrust.X;
+                mScoutThrustControls.ThrustForward += lBlackHoleAvoidThrust.Y;
+            }
+
+
+            /// <summary>
+            /// Calculates the thrust needed to avoid any number of black holes close to the scout.
+            /// </summary>
+            /// <returns>Returns the calculated thrust needed to flee from the black hole.</returns>
+            private pose getBlackHoleAvoidThrust()
+            {
+                double lRangeToObject = 0;
+                double thrust = 0;
+                pose lTotalAvoidanceThrust = new pose();
+
+                foreach (KeyValuePair<int, GlobalForeignObject> iBlackHoleValuePair in mMap.mBlackHoles)
+                {
+                    //Gets the range to the object
+                    lRangeToObject = mMap.CalculateDistanceFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
+
+                    // if scout is close enough, act on avoid.
+                    if (lRangeToObject < 200)
+                    {
+                        thrust = 600 / lRangeToObject;
+
+                        double lAngleToBlackHole = mMap.CalculateAngleFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
+
+                        //adds the flee thrust to the total avoidance thrust
+                        pose lTempAvoidThrust = GetFleeThrust(0, thrust, lAngleToBlackHole - Math.PI);
+                        lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
+                        lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
+
+                    }
+
+                }
+                return lTotalAvoidanceThrust;
+            }
+
+
+
+            private pose GetFleeThrust(double x, double y, double angle) // Rotate a vector clockwise through a given angle
+            {
+                pose p = new pose();
+                p.angle = angle;
+                p.X = x * Math.Cos(angle) + y * Math.Sin(angle);
+                p.Y = -x * Math.Sin(angle) + y * Math.Cos(angle);
+
+                /*
+                 * The following is the rotation for rotating through an anti-clockwise direction and is found in most text books
+                 * X' = xCosA - ySinA
+                 * Y' = xSinA + yCosA
+                 * 
+                 * But we are rotating in a clockwise direction so the rotational equations become;
+                 * X' = xCosA + ySinA
+                 * Y' = -xCosA + ySinA
+                */
+                return p;
             }
 
         }

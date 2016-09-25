@@ -768,16 +768,19 @@ namespace SpaceChaseLib
 
             public void StartLevel(int levelNumber)
             {
-
+                Reset();
+                mNavigation.CreateBoxPath();
             }
 
             public void InLevel(int levelNumber)
             {
+                mMap.TrackShip(mScoutState);
+                InTask4();
             }
 
             public void EndLevel(int levelNumber, bool IsScoutAlive)
             {
-
+                Reset();
             }
             public String ScreenMessage()
             {
@@ -1122,7 +1125,6 @@ namespace SpaceChaseLib
             private pose getCombatDroneAvoidThrust()
             {
                 double lRangeToObject = 0;
-                double thrust = 0;
                 pose lTotalAvoidanceThrust = new pose();
 
                 foreach (KeyValuePair<int, GlobalForeignObject> iCombatDronePair in mMap.mCombatDrones)
@@ -1133,17 +1135,16 @@ namespace SpaceChaseLib
                     // if scout is close enough, act on avoid.
                     if (lRangeToObject < 400)
                     {
-                        thrust = 600 / lRangeToObject;
+                        pose lThrustToDrone = MoveToTarget(iCombatDronePair.Value.mXCoord, iCombatDronePair.Value.mYCoord, 0.2);
 
-                        double lAngleToCombatDrone = mMap.CalculateAngleFromScout(iCombatDronePair.Value.mXCoord, iCombatDronePair.Value.mYCoord);
 
                         //adds the flee thrust to the total avoidance thrust
-                        pose lTempAvoidThrust = GetFleeThrust(0, thrust, lAngleToCombatDrone - Math.PI);
-                        lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
+                        pose lAvoidThrust = GetFleeThrust(lThrustToDrone.X, lThrustToDrone.Y, lThrustToDrone.angle - Math.PI);
+                        lTotalAvoidanceThrust.X += lAvoidThrust.X;
 
                         //Only apply y thrust if the black hole is very close
                         if (lRangeToObject < 100)
-                            lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
+                            lTotalAvoidanceThrust = lAvoidThrust;
 
                     }
 

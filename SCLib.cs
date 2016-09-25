@@ -648,7 +648,7 @@ namespace SpaceChaseLib
                         return;
                     }
                 }
-                mNavigation.MoveToWaypoint(0.4, 50);
+                mNavigation.MoveToWaypoint();
             }
 
             private void InTask2()
@@ -672,17 +672,17 @@ namespace SpaceChaseLib
                     if (lDistanceToCollectionPoint < 15)
                     {
                         mScoutActionControls.MinerOn = true;
-                        mNavigation.MoveToWaypoint(0.01, 0);
+                        mNavigation.MoveToWaypoint(500, 1);
                     }
                     else
                     {
 
-                        mNavigation.MoveToWaypoint(0.05, 1);
+                        mNavigation.MoveToWaypoint(500, 1);
                     }
                 }
                 else
                 {
-                    mNavigation.MoveToWaypoint(0.4, 50);
+                    mNavigation.MoveToWaypoint();
                 }
 
                 mNavigation.AvoidObjects();
@@ -703,20 +703,13 @@ namespace SpaceChaseLib
                     if (lDistanceToCollectionPoint < 15)
                     {
                         mScoutActionControls.MinerOn = true;
-                        mNavigation.MoveToWaypoint(0.01, 0);
                     }
-                    else
-                    {
-
-                        mNavigation.MoveToWaypoint(0.05, 1);
-                    }
-
                     if (mScoutState.hullIntegrity == 1)
                     {
                         mScoutActionControls.MinerOn = false;
                         isMinerFinished = true;
                     }
-
+                    mNavigation.MoveToWaypoint(500, 1);
                 }
                 else if (mMap.mDistortions.Count > 0 && isMinerFinished == true)
                 {
@@ -730,23 +723,19 @@ namespace SpaceChaseLib
                     {
                         mReportObject.complete = true;
                         mScoutActionControls.EnergyExtractorOn = true;
-                        mNavigation.MoveToWaypoint(0.01, 0);
-                    }
-                    else
-                    {
-                        mNavigation.MoveToWaypoint(0.05, 1);
                     }
 
                     if (mScoutState.shieldEnergy == 1)
                     {
                         mScoutActionControls.ShieldOn = true;
                     }
+                    mNavigation.MoveToWaypoint(500, 1);
                 }
 
 
                 else
                 {
-                    mNavigation.MoveToWaypoint(0.4, 50);
+                    mNavigation.MoveToWaypoint(200, 50);
                 }
                 mNavigation.AvoidObjects();
 
@@ -760,7 +749,7 @@ namespace SpaceChaseLib
 
                 }
 
-                mNavigation.MoveToWaypoint(0.4, 200);
+                mNavigation.MoveToWaypoint(100, 200);
                 mNavigation.AvoidObjects();
             }
 
@@ -984,9 +973,9 @@ namespace SpaceChaseLib
             /// <summary>
             /// Moves the scout to a waypoint
             /// </summary>
-            /// <param name="MaxVel"></param>
+            /// <param name="aSlowdown">A constant that determines how much the thrust descreases with distance to the target. A larger number slows it more dramatically, enter 1 for no slowdown.</param>
             /// <param name="aAccuracy"></param>
-            public void MoveToWaypoint(double MaxVel, double aAccuracy)
+            public void MoveToWaypoint(double aSlowdown = 200, double aAccuracy = 100)
             {
                 //Makes sure that momevemnt is not attempted until a path exists.
                 if (mPath.Count < 2)
@@ -1001,19 +990,28 @@ namespace SpaceChaseLib
                 {
                     mPath.RemoveAt(0);
                 }
-                MoveToTarget(mPath[0].X, mPath[0].Y, MaxVel);
-
+                pose lPerscriptedPose = MoveToTarget(mPath[0].X, mPath[0].Y, aSlowdown);
+                mScoutThrustControls.ThrustCW = lPerscriptedPose.angle;
+                mScoutThrustControls.ThrustForward = lPerscriptedPose.Y;
+                mScoutThrustControls.ThrustRight = lPerscriptedPose.X;
 
 
             }
 
 
 
-
-            private void MoveToTarget(double targetX, double targetY, double maxVelocity)
+            /// <summary>
+            /// returns a thrust perscription for the given target
+            /// </summary>
+            /// <param name="targetX">X</param>
+            /// <param name="targetY">Y</param>
+            /// <param name="aAngularVelSharpness">How sharp the ship is allowed to turn. A lower value restricts the CWVelocity by less.</param>
+            /// <param name="aSlowdown">A constant that determines how much the thrust descreases with distance to the target. A larger number slows it more dramatically, enter 1 for no slowdown.</param>
+            /// <returns></returns>
+            private pose MoveToTarget(double targetX, double targetY, double aSlowdown = 200, double aAngularVelSharpness = 40)
             {
-                //Lower means more sharp.
-                double AngularVelSharpness = 40;
+                const double lMaxVelocity = 0.4;
+                pose lThrustToTarget = new pose();
 
                 double TwoPI = Math.PI * 2;
 
@@ -1033,14 +1031,14 @@ namespace SpaceChaseLib
                 else if (anglebetweenFaceAndCurrentHeading > Math.PI)
                     anglebetweenFaceAndCurrentHeading -= TwoPI;
 
-                double requiredCWVel = anglebetweenFaceAndCurrentHeading / AngularVelSharpness;
+                double requiredCWVel = anglebetweenFaceAndCurrentHeading / aAngularVelSharpness;
 
                 if (requiredCWVel > 0.005)
                     requiredCWVel = 0.005;
                 else if (requiredCWVel < -0.005)
                     requiredCWVel = -0.005;
 
-                mScoutThrustControls.ThrustCW = mRotationalPID.CalculateThrust(requiredCWVel, mScoutState.currentVelocityAngularCW);
+                lThrustToTarget.angle = mRotationalPID.CalculateThrust(requiredCWVel, mScoutState.currentVelocityAngularCW);
 
 
 
@@ -1052,15 +1050,17 @@ namespace SpaceChaseLib
                 newdX = distance * Math.Sin(anglebetweenFaceAndCurrentHeading); // Get the sideways distance the scout must move
                 newdY = distance * Math.Cos(anglebetweenFaceAndCurrentHeading); // Get the forward distance the scout must move
 
-                requiredXVel = newdX / 200;     // The required velocity is slower as the scout gets closer to the destination
-                requiredYVel = newdY / 200;
+                requiredXVel = newdX / aSlowdown;     // The required velocity is slower as the scout gets closer to the destination
+                requiredYVel = newdY / aSlowdown;
 
-                mScoutThrustControls.ThrustRight = mXPID.CalculateThrust(requiredXVel, mScoutState.currentVelocityRight);
+                lThrustToTarget.X = mXPID.CalculateThrust(requiredXVel, mScoutState.currentVelocityRight);
 
-                if (requiredYVel > maxVelocity)
-                    requiredYVel = maxVelocity;
+                if (requiredYVel > lMaxVelocity)
+                    requiredYVel = lMaxVelocity;
 
-                mScoutThrustControls.ThrustForward = mYPID.CalculateThrust(requiredYVel, mScoutState.currentVelocityForward);
+                lThrustToTarget.Y = mYPID.CalculateThrust(requiredYVel, mScoutState.currentVelocityForward);
+
+                return lThrustToTarget;
             }
 
 
@@ -1099,9 +1099,9 @@ namespace SpaceChaseLib
                     lRangeToObject = mMap.CalculateDistanceFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
 
                     // if scout is close enough, act on avoid.
-                    if (lRangeToObject < 200)
+                    if (lRangeToObject < 300)
                     {
-                        thrust = 600 / lRangeToObject;
+                        thrust = 800 / lRangeToObject;
 
                         double lAngleToBlackHole = mMap.CalculateAngleFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
 
@@ -1110,7 +1110,7 @@ namespace SpaceChaseLib
                         lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
 
                         //Only apply y thrust if the black hole is very close
-                        if (lRangeToObject < 100)
+                        if (lRangeToObject < 150)
                             lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
 
                     }
@@ -1154,11 +1154,12 @@ namespace SpaceChaseLib
             /// <summary>
             /// Gets the thrust value needed to avoid walls
             /// </summary>
-            /// <param name="aAvoidDistance">The distance the scout must be within in order to get an avoidance value.</param>
-            /// <param name="aCriticalDistance">The distance the scout must be within in order to be considered critical.</param>
+            /// <param name="aAvoidDistance">The distance the scout must be within in order to get an avoidance value. (adjusts side thrust only)</param>
+            /// <param name="aDangerDistance">The distance the scout must be within in order to be considered in danger. (adjusts side and forward thrust)</param>
+            /// <param name="aCriticalDistance">The distance the scout must be within in order to be considered critical. (adjusts angular thrust) </param>
             /// <param name="aThrustToDistanceStrength">A constant value that determines the thrust output based on the distance from the object. Higher == more thrust</param>
             /// <returns>Avoidance thrust for walls.</returns>
-            private pose getWallAvoidThrust(double aAvoidDistance, double aCriticalDistance, double aThrustToDistanceStrength)
+            private pose getWallAvoidThrust(double aAvoidDistance, double aDangerDistance, double aCriticalDistance, double aThrustToDistanceStrength)
             {
                 double lRangeToObject = 0;
                 double thrust = 0;
@@ -1184,8 +1185,10 @@ namespace SpaceChaseLib
                     pose lTempAvoidThrust = GetFleeThrust(0, thrust, lAngleToWall - Math.PI);
                     lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
 
-                    if (lDistanceToPosXWall < aCriticalDistance)
+                    if (lDistanceToPosXWall < aDangerDistance)
                         lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
+                    else if (lDistanceToPosXWall < aCriticalDistance)
+                        lTotalAvoidanceThrust = MoveToTarget(lTempAvoidThrust.X, lTempAvoidThrust.Y, 10);
 
                 }
                 //UNFINISHED METHOD

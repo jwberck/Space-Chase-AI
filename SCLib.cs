@@ -675,17 +675,13 @@ namespace SpaceChaseLib
                     {
                         mScoutActionControls.MinerOn = true;
                     }
-                    ScoutThrustControls lScoutThrust = mNavigation.MoveToWaypoint(500, 1);
-                    mScoutThrustControls = mNavigation.ApplyPID(lScoutThrust, mScoutState);
+                    think(500, 1);
 
                 }
                 else
                 {
-                    ScoutThrustControls lScoutThrust = mNavigation.MoveToWaypoint();
-                    mScoutThrustControls = mNavigation.ApplyPID(lScoutThrust, mScoutState);
+                    think();
                 }
-
-                mNavigation.AvoidObjects();
             }
 
             private void InTask3()
@@ -709,8 +705,7 @@ namespace SpaceChaseLib
                         mScoutActionControls.MinerOn = false;
                         isMinerFinished = true;
                     }
-                    ScoutThrustControls lScoutThrust = mNavigation.MoveToWaypoint(500, 1);
-                    mScoutThrustControls = mNavigation.ApplyPID(lScoutThrust, mScoutState);
+                    think(500, 1);
                 }
                 else if (mMap.mDistortions.Count > 0 && isMinerFinished == true)
                 {
@@ -730,17 +725,12 @@ namespace SpaceChaseLib
                     {
                         mScoutActionControls.ShieldOn = true;
                     }
-                    ScoutThrustControls lScoutThrust = mNavigation.MoveToWaypoint(500, 1);
-                    mScoutThrustControls = mNavigation.ApplyPID(lScoutThrust, mScoutState);
+                    think(500, 1);
                 }
-
-
                 else
                 {
-                    ScoutThrustControls lScoutThrust = mNavigation.MoveToWaypoint();
-                    mScoutThrustControls = mNavigation.ApplyPID(lScoutThrust, mScoutState);
+                    think();
                 }
-                mNavigation.AvoidObjects();
 
 
             }
@@ -843,7 +833,7 @@ namespace SpaceChaseLib
                 isMinerFinished = false;
             }
 
-            public void think()
+            public void think(double aSlowdown = 200, double aAccuracy = 200)
             {
                 if (mMap.mCombatDrones.Count > 1 || mMap.mFactoryDrones.Count > 1)
                 {
@@ -853,12 +843,18 @@ namespace SpaceChaseLib
 
 
 
-                ScoutThrustControls lWaypointThrust = mNavigation.MoveToWaypoint();
+                ScoutThrustControls lWaypointThrust = mNavigation.MoveToWaypoint(aSlowdown, aAccuracy);
 
                 //get all of the avoid thrusts
-                ScoutThrustControls lBlackHoleAvoidThrust = mNavigation.getBlackHoleAvoidThrust();
+                ScoutThrustControls lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 100, 1000);
 
-                ScoutThrustControls lCombatDroneAvoidThrust = mNavigation.getCombatDroneAvoidThrust();
+                ScoutThrustControls lCombatDroneAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mCombatDrones);
+
+                ScoutThrustControls lFactoryDroneAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mFactoryDrones);
+
+                ScoutThrustControls lAsteroidAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mAsteroids, 100, 50, 5);
+
+
 
                 //weight everything
                 lTotalThrust.ThrustForward += lBlackHoleAvoidThrust.ThrustForward;
@@ -869,9 +865,19 @@ namespace SpaceChaseLib
                 lTotalThrust.ThrustRight += lCombatDroneAvoidThrust.ThrustRight;
                 lTotalThrust.ThrustCW += lCombatDroneAvoidThrust.ThrustCW;
 
+                lTotalThrust.ThrustForward += lFactoryDroneAvoidThrust.ThrustForward;
+                lTotalThrust.ThrustRight += lFactoryDroneAvoidThrust.ThrustRight;
+                lTotalThrust.ThrustCW += lFactoryDroneAvoidThrust.ThrustCW;
+
                 lTotalThrust.ThrustForward += lWaypointThrust.ThrustForward;
                 lTotalThrust.ThrustRight += lWaypointThrust.ThrustRight;
                 lTotalThrust.ThrustCW += lWaypointThrust.ThrustCW;
+
+                lTotalThrust.ThrustForward += lAsteroidAvoidThrust.ThrustForward;
+                lTotalThrust.ThrustRight += lAsteroidAvoidThrust.ThrustRight;
+                lTotalThrust.ThrustCW += lAsteroidAvoidThrust.ThrustCW;
+
+
 
 
                 //get single values
@@ -1168,38 +1174,30 @@ namespace SpaceChaseLib
             }
 
 
-            public void AvoidObjects()
-            {
-                //Gets the avoidance thrust needed for black holes and adds it to the scout thrust.
-                ScoutThrustControls lBlackHoleAvoidThrust = getBlackHoleAvoidThrust();
-
-                ScoutThrustControls lCombatDroneAvoidThrust = getCombatDroneAvoidThrust();
-            }
-
-
             /// <summary>
             /// Calculates the thrust needed to avoid any number of black holes close to the scout.
             /// </summary>
             /// <returns>Returns the calculated thrust needed to flee from the black hole.</returns>
-            public ScoutThrustControls getBlackHoleAvoidThrust()
+            public ScoutThrustControls getObjectsAvoidThrust(Dictionary<int, GlobalForeignObject> aObjects, double aAvoidDistance = 300, double aCriticalDistance = 100, double aSpeedup = 600)
             {
                 ScoutThrustControls lTotalAvoidanceThrust = new ScoutThrustControls();
+                int lObjectsInRangeCount = 0;
 
-                foreach (KeyValuePair<int, GlobalForeignObject> iBlackHoleValuePair in mMap.mBlackHoles)
+                foreach (KeyValuePair<int, GlobalForeignObject> iAvoidObjectValuePair in aObjects)
                 {
                     //Gets the range to the object
-                    double lRangeToObject = mMap.CalculateDistanceFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
-                    double lAngleToObject = mMap.CalculateRelativeAngleFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
+                    double lRangeToObject = mMap.CalculateDistanceFromScout(iAvoidObjectValuePair.Value.mXCoord, iAvoidObjectValuePair.Value.mYCoord);
+                    double lAngleToObject = mMap.CalculateRelativeAngleFromScout(iAvoidObjectValuePair.Value.mXCoord, iAvoidObjectValuePair.Value.mYCoord);
                     // if scout is close enough, act on avoid.
-                    if (lRangeToObject < 300)
+                    if (lRangeToObject < aAvoidDistance)
                     {
-
-                        ScoutThrustControls lThrustAwayFromObject = MoveAwayFromTarget(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mXCoord, 1000);
+                        lObjectsInRangeCount++;
+                        ScoutThrustControls lThrustAwayFromObject = MoveAwayFromTarget(iAvoidObjectValuePair.Value.mXCoord, iAvoidObjectValuePair.Value.mXCoord, aSpeedup);
 
                         lTotalAvoidanceThrust.ThrustRight += lThrustAwayFromObject.ThrustRight;
 
                         // If the angle is within the cone or super close act on other thrust
-                        if ((lAngleToObject < Math.PI / 3 && lAngleToObject > 0 - Math.PI / 3) || (lAngleToObject > (Math.PI * 2 - Math.PI / 3)) || lRangeToObject < 100)
+                        if ((lAngleToObject < Math.PI / 3 && lAngleToObject > 0 - Math.PI / 3) || (lAngleToObject > (Math.PI * 2 - Math.PI / 3)) || lRangeToObject < aCriticalDistance)
                         {
                             lTotalAvoidanceThrust.ThrustForward += lThrustAwayFromObject.ThrustForward;
                             lTotalAvoidanceThrust.ThrustCW += lThrustAwayFromObject.ThrustCW;
@@ -1209,42 +1207,11 @@ namespace SpaceChaseLib
                     }
 
                 }
+
+                if (lObjectsInRangeCount != 0)
+                    lTotalAvoidanceThrust.ThrustRight = lTotalAvoidanceThrust.ThrustRight / lObjectsInRangeCount;
                 return lTotalAvoidanceThrust;
             }
-
-            public ScoutThrustControls getCombatDroneAvoidThrust()
-            {
-
-                ScoutThrustControls lTotalAvoidanceThrust = new ScoutThrustControls();
-
-                foreach (KeyValuePair<int, GlobalForeignObject> iCombatDronePair in mMap.mCombatDrones)
-                {
-
-                    //Gets the range to the object
-                    double lRangeToObject = mMap.CalculateDistanceFromScout(iCombatDronePair.Value.mXCoord, iCombatDronePair.Value.mYCoord);
-                    double lAngleToObject = mMap.CalculateRelativeAngleFromScout(iCombatDronePair.Value.mXCoord, iCombatDronePair.Value.mYCoord);
-
-                    // if scout is close enough, act on avoid.
-                    if (lRangeToObject < 300)
-                    {
-                        ScoutThrustControls lThrustAwayFromObject = MoveAwayFromTarget(iCombatDronePair.Value.mXCoord, iCombatDronePair.Value.mXCoord);
-
-                        lTotalAvoidanceThrust.ThrustRight += lThrustAwayFromObject.ThrustRight;
-
-                        // If the angle is within the cone or super close, act on other thrust
-                        if ((lAngleToObject < Math.PI / 3 && lAngleToObject > 0 - Math.PI / 3) || (lAngleToObject > (Math.PI * 2 - Math.PI / 3)) || lRangeToObject < 100)
-                        {
-                            lTotalAvoidanceThrust.ThrustForward += lThrustAwayFromObject.ThrustForward;
-                            lTotalAvoidanceThrust.ThrustCW += lThrustAwayFromObject.ThrustCW;
-                        }
-
-
-                    }
-
-                }
-                return lTotalAvoidanceThrust;
-            }
-
 
 
             /// <summary>

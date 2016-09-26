@@ -581,7 +581,7 @@ namespace SpaceChaseLib
             /// </summary>
             public void InitialiseGame()
             {
-                mNavigation.Initialize(mMap, mScoutThrustControls, mScoutState);
+                mNavigation.Initialize(mMap);
             }
 
 
@@ -648,7 +648,9 @@ namespace SpaceChaseLib
                         return;
                     }
                 }
-                mNavigation.MoveToWaypoint();
+                ScoutThrustControls lScoutThrust = mNavigation.MoveToWaypoint();
+                mScoutThrustControls = mNavigation.ApplyPID(lScoutThrust, mScoutState);
+
             }
 
             private void InTask2()
@@ -672,17 +674,15 @@ namespace SpaceChaseLib
                     if (lDistanceToCollectionPoint < 15)
                     {
                         mScoutActionControls.MinerOn = true;
-                        mNavigation.MoveToWaypoint(500, 1);
                     }
-                    else
-                    {
+                    ScoutThrustControls lScoutThrust = mNavigation.MoveToWaypoint(500, 1);
+                    mScoutThrustControls = mNavigation.ApplyPID(lScoutThrust, mScoutState);
 
-                        mNavigation.MoveToWaypoint(500, 1);
-                    }
                 }
                 else
                 {
-                    mNavigation.MoveToWaypoint();
+                    ScoutThrustControls lScoutThrust = mNavigation.MoveToWaypoint();
+                    mScoutThrustControls = mNavigation.ApplyPID(lScoutThrust, mScoutState);
                 }
 
                 mNavigation.AvoidObjects();
@@ -709,7 +709,8 @@ namespace SpaceChaseLib
                         mScoutActionControls.MinerOn = false;
                         isMinerFinished = true;
                     }
-                    mNavigation.MoveToWaypoint(500, 1);
+                    ScoutThrustControls lScoutThrust = mNavigation.MoveToWaypoint(500, 1);
+                    mScoutThrustControls = mNavigation.ApplyPID(lScoutThrust, mScoutState);
                 }
                 else if (mMap.mDistortions.Count > 0 && isMinerFinished == true)
                 {
@@ -729,13 +730,15 @@ namespace SpaceChaseLib
                     {
                         mScoutActionControls.ShieldOn = true;
                     }
-                    mNavigation.MoveToWaypoint(500, 1);
+                    ScoutThrustControls lScoutThrust = mNavigation.MoveToWaypoint(500, 1);
+                    mScoutThrustControls = mNavigation.ApplyPID(lScoutThrust, mScoutState);
                 }
 
 
                 else
                 {
-                    mNavigation.MoveToWaypoint(200, 50);
+                    ScoutThrustControls lScoutThrust = mNavigation.MoveToWaypoint();
+                    mScoutThrustControls = mNavigation.ApplyPID(lScoutThrust, mScoutState);
                 }
                 mNavigation.AvoidObjects();
 
@@ -744,18 +747,13 @@ namespace SpaceChaseLib
 
             private void InTask4()
             {
-                if (mMap.mCombatDrones.Count >= 1)
-                {
+                think();
 
-                }
-
-                mNavigation.MoveToWaypoint(100, 200);
-                mNavigation.AvoidObjects();
             }
 
             private void InTask5()
             {
-                InTask4();
+                think();
             }
 
 
@@ -845,6 +843,21 @@ namespace SpaceChaseLib
                 isMinerFinished = false;
             }
 
+            public void think()
+            {
+                ScoutThrustControls lWaypointThrust = mNavigation.MoveToWaypoint();
+
+                //get all of the avoid thrusts
+                mNavigation.AvoidObjects();
+
+                //weight everything
+
+                //get single values
+
+                //use PID calcuations and apply them to scout thrust.
+                mScoutThrustControls = mNavigation.ApplyPID(lWaypointThrust, mScoutState);
+            }
+
 
 
         }
@@ -853,8 +866,6 @@ namespace SpaceChaseLib
         public class Navigation
         {
             Map mMap;
-            ScoutThrustControls mScoutThrustControls;
-            ScoutState mScoutState;
 
             public PID mXPID = new PID();
             public PID mYPID = new PID();
@@ -868,11 +879,9 @@ namespace SpaceChaseLib
             /// <param name="aMap"></param>
             /// <param name="aScoutControl"></param>
             /// <param name="aScoutStatus"></param>
-            public void Initialize(Map aMap, ScoutThrustControls aScoutThrustControls, ScoutState aScoutState)
+            public void Initialize(Map aMap)
             {
                 mMap = aMap;
-                mScoutThrustControls = aScoutThrustControls;
-                mScoutState = aScoutState;
             }
 
             /// <summary>
@@ -978,7 +987,7 @@ namespace SpaceChaseLib
             /// </summary>
             /// <param name="aSlowdown">A constant that determines how much the thrust descreases with distance to the target. A larger number slows it more dramatically, enter 1 for no slowdown.</param>
             /// <param name="aAccuracy"></param>
-            public void MoveToWaypoint(double aSlowdown = 200, double aAccuracy = 100)
+            public ScoutThrustControls MoveToWaypoint(double aSlowdown = 200, double aAccuracy = 100)
             {
                 //Makes sure that momevemnt is not attempted until a path exists.
                 if (mPath.Count < 2)
@@ -993,10 +1002,8 @@ namespace SpaceChaseLib
                 {
                     mPath.RemoveAt(0);
                 }
-                pose lPerscriptedPose = MoveToTarget(mPath[0].X, mPath[0].Y, aSlowdown);
-                mScoutThrustControls.ThrustCW = lPerscriptedPose.angle;
-                mScoutThrustControls.ThrustForward = lPerscriptedPose.Y;
-                mScoutThrustControls.ThrustRight = lPerscriptedPose.X;
+                return MoveToTarget(mPath[0].X, mPath[0].Y, aSlowdown);
+
 
 
             }
@@ -1011,10 +1018,10 @@ namespace SpaceChaseLib
             /// <param name="aAngularVelSharpness">How sharp the ship is allowed to turn. A lower value restricts the CWVelocity by less.</param>
             /// <param name="aSlowdown">A constant that determines how much the thrust descreases with distance to the target. A larger number slows it more dramatically, enter 1 for no slowdown.</param>
             /// <returns></returns>
-            private pose MoveToTarget(double targetX, double targetY, double aSlowdown = 200, double aAngularVelSharpness = 40)
+            private ScoutThrustControls MoveToTarget(double targetX, double targetY, double aSlowdown = 200, double aAngularVelSharpness = 40)
             {
                 const double lMaxVelocity = 0.4;
-                pose lThrustToTarget = new pose();
+                ScoutThrustControls lThrustToTarget = new ScoutThrustControls();
 
                 double TwoPI = Math.PI * 2;
 
@@ -1041,7 +1048,9 @@ namespace SpaceChaseLib
                 else if (requiredCWVel < -0.005)
                     requiredCWVel = -0.005;
 
-                lThrustToTarget.angle = mRotationalPID.CalculateThrust(requiredCWVel, mScoutState.currentVelocityAngularCW);
+                lThrustToTarget.ThrustCW = requiredCWVel;
+
+                //mRotationalPID.CalculateThrust(requiredCWVel, mScoutState.currentVelocityAngularCW);
 
 
 
@@ -1056,16 +1065,83 @@ namespace SpaceChaseLib
                 requiredXVel = newdX / aSlowdown;     // The required velocity is slower as the scout gets closer to the destination
                 requiredYVel = newdY / aSlowdown;
 
-                lThrustToTarget.X = mXPID.CalculateThrust(requiredXVel, mScoutState.currentVelocityRight);
+                lThrustToTarget.ThrustRight = requiredXVel;
+
+                //mXPID.CalculateThrust(requiredXVel, mScoutState.currentVelocityRight);
 
                 if (requiredYVel > lMaxVelocity)
                     requiredYVel = lMaxVelocity;
 
-                lThrustToTarget.Y = mYPID.CalculateThrust(requiredYVel, mScoutState.currentVelocityForward);
+                lThrustToTarget.ThrustForward = requiredYVel;
+
+                //mYPID.CalculateThrust(requiredYVel, mScoutState.currentVelocityForward);
 
                 return lThrustToTarget;
             }
 
+            public ScoutThrustControls MoveAwayFromTarget(double targetX, double targetY, double aSpeedUp = 600, double aAngularVelSharpness = 40)
+            {
+
+
+
+
+                const double lMaxVelocity = 0.4;
+                ScoutThrustControls lThrustToTarget = new ScoutThrustControls();
+
+                double TwoPI = Math.PI * 2;
+
+                //Gets the avoid point.
+                double lRelativeAngleToObject = mMap.CalculateRelativeAngleFromScout(targetX, targetY);
+
+                //If there is an error in this method, its in these next 4 lines
+                pose lAvoidPoint = FlipVector(targetX, targetY, lRelativeAngleToObject);
+
+                double deltaX = lAvoidPoint.X - mMap.mScoutPose.X;
+                double deltaY = lAvoidPoint.Y - mMap.mScoutPose.Y;
+
+                double angleToFace = Math.Atan2(deltaX, deltaY);
+
+                angleToFace = angleToFace % TwoPI;
+
+                double anglebetweenFaceAndCurrentHeading = angleToFace - mMap.mScoutPose.angle;
+
+                anglebetweenFaceAndCurrentHeading = anglebetweenFaceAndCurrentHeading % TwoPI;
+
+                if (anglebetweenFaceAndCurrentHeading < -Math.PI)
+                    anglebetweenFaceAndCurrentHeading += TwoPI;
+                else if (anglebetweenFaceAndCurrentHeading > Math.PI)
+                    anglebetweenFaceAndCurrentHeading -= TwoPI;
+
+                double requiredCWVel = anglebetweenFaceAndCurrentHeading / aAngularVelSharpness;
+
+                if (requiredCWVel > 0.005)
+                    requiredCWVel = 0.005;
+                else if (requiredCWVel < -0.005)
+                    requiredCWVel = -0.005;
+
+                lThrustToTarget.ThrustCW = requiredCWVel;
+
+
+
+                double distance = Math.Sqrt(deltaX * deltaX + deltaY * deltaY); //Distance to waypoint
+                double newdX, newdY;
+                double requiredXVel, requiredYVel;
+
+
+                newdX = distance * Math.Sin(anglebetweenFaceAndCurrentHeading); // Get the sideways distance the scout must move
+                newdY = distance * Math.Cos(anglebetweenFaceAndCurrentHeading); // Get the forward distance the scout must move
+
+                requiredXVel = aSpeedUp / newdX;     // The required velocity is faster as the scout gets closer to the destination
+                requiredYVel = aSpeedUp / newdY;
+
+                lThrustToTarget.ThrustRight = requiredXVel;
+
+                if (requiredYVel > lMaxVelocity)
+                    requiredYVel = lMaxVelocity;
+
+                lThrustToTarget.ThrustForward = requiredYVel;
+                return lThrustToTarget;
+            }
 
             public void SetupJavelin()
             {
@@ -1076,13 +1152,9 @@ namespace SpaceChaseLib
             public void AvoidObjects()
             {
                 //Gets the avoidance thrust needed for black holes and adds it to the scout thrust.
-                pose lBlackHoleAvoidThrust = getBlackHoleAvoidThrust();
-                mScoutThrustControls.ThrustRight += lBlackHoleAvoidThrust.X;
-                mScoutThrustControls.ThrustForward += lBlackHoleAvoidThrust.Y;
+                ScoutThrustControls lBlackHoleAvoidThrust = getBlackHoleAvoidThrust();
 
-                pose lCombatDroneAvoidThrust = getCombatDroneAvoidThrust();
-                mScoutThrustControls.ThrustRight += lCombatDroneAvoidThrust.X;
-                mScoutThrustControls.ThrustForward += lCombatDroneAvoidThrust.Y;
+                ScoutThrustControls lCombatDroneAvoidThrust = getCombatDroneAvoidThrust();
             }
 
 
@@ -1090,31 +1162,30 @@ namespace SpaceChaseLib
             /// Calculates the thrust needed to avoid any number of black holes close to the scout.
             /// </summary>
             /// <returns>Returns the calculated thrust needed to flee from the black hole.</returns>
-            private pose getBlackHoleAvoidThrust()
+            private ScoutThrustControls getBlackHoleAvoidThrust()
             {
-                double lRangeToObject = 0;
-                double thrust = 0;
-                pose lTotalAvoidanceThrust = new pose();
+                ScoutThrustControls lTotalAvoidanceThrust = new ScoutThrustControls();
 
                 foreach (KeyValuePair<int, GlobalForeignObject> iBlackHoleValuePair in mMap.mBlackHoles)
                 {
                     //Gets the range to the object
-                    lRangeToObject = mMap.CalculateDistanceFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
+                    double lRangeToObject = mMap.CalculateDistanceFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
 
                     // if scout is close enough, act on avoid.
                     if (lRangeToObject < 300)
                     {
-                        thrust = 800 / lRangeToObject;
 
-                        double lAngleToBlackHole = mMap.CalculateAngleFromScout(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mYCoord);
+                        ScoutThrustControls lThrustAwayFromObject = MoveAwayFromTarget(iBlackHoleValuePair.Value.mXCoord, iBlackHoleValuePair.Value.mXCoord);
 
-                        //adds the flee thrust to the total avoidance thrust
-                        pose lTempAvoidThrust = GetFleeThrust(0, thrust, lAngleToBlackHole - Math.PI);
-                        lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
+                        lTotalAvoidanceThrust.ThrustRight += lThrustAwayFromObject.ThrustRight;
 
                         //Only apply y thrust if the black hole is very close
-                        if (lRangeToObject < 150)
-                            lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
+                        if (lRangeToObject < 100)
+                        {
+                            lTotalAvoidanceThrust.ThrustForward += lThrustAwayFromObject.ThrustForward;
+                            lTotalAvoidanceThrust.ThrustCW += lThrustAwayFromObject.ThrustCW;
+                        }
+
 
                     }
 
@@ -1122,30 +1193,30 @@ namespace SpaceChaseLib
                 return lTotalAvoidanceThrust;
             }
 
-            private pose getCombatDroneAvoidThrust()
+            private ScoutThrustControls getCombatDroneAvoidThrust()
             {
-                double lRangeToObject = 0;
-                pose lTotalAvoidanceThrust = new pose();
+
+                ScoutThrustControls lTotalAvoidanceThrust = new ScoutThrustControls();
 
                 foreach (KeyValuePair<int, GlobalForeignObject> iCombatDronePair in mMap.mCombatDrones)
                 {
+
                     //Gets the range to the object
-                    lRangeToObject = mMap.CalculateDistanceFromScout(iCombatDronePair.Value.mXCoord, iCombatDronePair.Value.mYCoord);
+                    double lRangeToObject = mMap.CalculateDistanceFromScout(iCombatDronePair.Value.mXCoord, iCombatDronePair.Value.mYCoord);
 
                     // if scout is close enough, act on avoid.
                     if (lRangeToObject < 400)
                     {
-                        pose lThrustToDrone = MoveToTarget(iCombatDronePair.Value.mXCoord, iCombatDronePair.Value.mYCoord, 0.2);
+                        ScoutThrustControls lThrustAwayFromObject = MoveAwayFromTarget(iCombatDronePair.Value.mXCoord, iCombatDronePair.Value.mXCoord);
 
-
-                        //adds the flee thrust to the total avoidance thrust
-                        pose lAvoidThrust = GetFleeThrust(lThrustToDrone.X, lThrustToDrone.Y, lThrustToDrone.angle - Math.PI);
-                        lTotalAvoidanceThrust.X += lAvoidThrust.X;
+                        lTotalAvoidanceThrust.ThrustRight += lThrustAwayFromObject.ThrustRight;
 
                         //Only apply y thrust if the black hole is very close
-                        if (lRangeToObject < 100)
-                            lTotalAvoidanceThrust = lAvoidThrust;
-
+                        if (lRangeToObject < 200)
+                        {
+                            lTotalAvoidanceThrust.ThrustForward += lThrustAwayFromObject.ThrustForward;
+                            lTotalAvoidanceThrust.ThrustCW += lThrustAwayFromObject.ThrustCW;
+                        }
                     }
 
                 }
@@ -1180,16 +1251,16 @@ namespace SpaceChaseLib
                 {
 
                     thrust += aThrustToDistanceStrength / lDistanceToPosXWall;
-                    double lAngleToWall = mMap.CalculateAngleFromScout(lMaxMapSize, mMap.mScoutPose.Y);
+                    double lAngleToWall = mMap.CalculateRelativeAngleFromScout(lMaxMapSize, mMap.mScoutPose.Y);
 
                     //adds the flee thrust to the total avoidance thrust
-                    pose lTempAvoidThrust = GetFleeThrust(0, thrust, lAngleToWall - Math.PI);
+                    pose lTempAvoidThrust = FlipVector(0, thrust, lAngleToWall);
                     lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
 
                     if (lDistanceToPosXWall < aDangerDistance)
                         lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
-                    else if (lDistanceToPosXWall < aCriticalDistance)
-                        lTotalAvoidanceThrust = MoveToTarget(lTempAvoidThrust.X, lTempAvoidThrust.Y, 10);
+                    //else if (lDistanceToPosXWall < aCriticalDistance)
+                    //lTotalAvoidanceThrust = MoveToTarget(lTempAvoidThrust.X, lTempAvoidThrust.Y, 10);
 
                 }
                 //UNFINISHED METHOD
@@ -1197,12 +1268,12 @@ namespace SpaceChaseLib
             }
 
 
-            private pose GetFleeThrust(double x, double y, double angle) // Rotate a vector clockwise through a given angle
+            private pose FlipVector(double x, double y, double angle) // Rotate a vector clockwise through a given angle
             {
                 pose p = new pose();
-                p.angle = angle;
-                p.X = x * Math.Cos(angle) + y * Math.Sin(angle);
-                p.Y = -x * Math.Sin(angle) + y * Math.Cos(angle);
+                p.angle = angle - Math.PI;
+                p.X = x * Math.Cos(p.angle) + y * Math.Sin(p.angle);
+                p.Y = -x * Math.Sin(p.angle) + y * Math.Cos(p.angle);
 
                 /*
                  * The following is the rotation for rotating through an anti-clockwise direction and is found in most text books
@@ -1214,6 +1285,17 @@ namespace SpaceChaseLib
                  * Y' = -xCosA + ySinA
                 */
                 return p;
+            }
+
+            public ScoutThrustControls ApplyPID(ScoutThrustControls aTargetThrust, ScoutState aCurrentThrust)
+            {
+                ScoutThrustControls lAdjustedThrust = new ScoutThrustControls();
+
+                lAdjustedThrust.ThrustCW = mRotationalPID.CalculateThrust(aTargetThrust.ThrustCW, aCurrentThrust.currentVelocityAngularCW);
+                lAdjustedThrust.ThrustForward = mYPID.CalculateThrust(aTargetThrust.ThrustForward, aCurrentThrust.currentVelocityForward);
+                lAdjustedThrust.ThrustRight = mXPID.CalculateThrust(aTargetThrust.ThrustRight, aCurrentThrust.currentVelocityRight);
+
+                return lAdjustedThrust;
             }
 
 
@@ -1295,7 +1377,7 @@ namespace SpaceChaseLib
                 pose lCollectionPoint = new pose();
 
                 double lCollecitonDistance = CalculateDistanceFromScout(aTargetX, aTargetY) - COLLECTION_RANGE;
-                double lCollectionAngle = CalculateAngleFromScout(aTargetX, aTargetY);
+                double lCollectionAngle = CalculateRelativeAngleFromScout(aTargetX, aTargetY);
 
                 //lGFO.mXCoord = aRFO.Range * Math.Sin(aScoutPose.angle + aRFO.Angle) + aScoutPose.X;
                 //lGFO.mYCoord = aRFO.Range * Math.Cos(aScoutPose.angle + aRFO.Angle) + aScoutPose.Y;
@@ -1319,13 +1401,7 @@ namespace SpaceChaseLib
                 return Math.Sqrt(deltaX * deltaX + deltaY * deltaY); //Distance to waypoint
             }
 
-            /// <summary>
-            /// Calculates the distance to a target from the Scouts position.
-            /// </summary>
-            /// <param name="aTargetX"></param>
-            /// <param name="aTargetY"></param>
-            /// <returns></returns>
-            public double CalculateAngleFromScout(double aTargetX, double aTargetY)
+            public double CalculateGlobalAngleFromScout(double aTargetX, double aTargetY)
             {
                 double TwoPI = Math.PI * 2;
 
@@ -1334,9 +1410,21 @@ namespace SpaceChaseLib
 
                 double angleToFace = Math.Atan2(deltaX, deltaY);
 
-                angleToFace = angleToFace % TwoPI;
+                return angleToFace % TwoPI;
+            }
 
-                double anglebetweenFaceAndCurrentHeading = angleToFace - mScoutPose.angle;
+            /// <summary>
+            /// Calculates the distance to a target from the Scouts position.
+            /// </summary>
+            /// <param name="aTargetX"></param>
+            /// <param name="aTargetY"></param>
+            /// <returns></returns>
+            public double CalculateRelativeAngleFromScout(double aTargetX, double aTargetY)
+            {
+                double TwoPI = Math.PI * 2;
+
+
+                double anglebetweenFaceAndCurrentHeading = CalculateGlobalAngleFromScout(aTargetX, aTargetY) - mScoutPose.angle;
 
                 anglebetweenFaceAndCurrentHeading = anglebetweenFaceAndCurrentHeading % TwoPI;
 

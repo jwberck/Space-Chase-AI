@@ -77,7 +77,7 @@ namespace SpaceChaseLib
     }
 
     // ObjectType is an enumeration of the different object types the ship's sensors can detect
-    public enum ObjectType { Asteroid, BlackHole, Distortion, CombatDrone, Factory }
+    public enum ObjectType { Asteroid, BlackHole, Distortion, CombatDrone, Factory, Wall }
 
     #endregion
 
@@ -881,6 +881,8 @@ namespace SpaceChaseLib
                 //get all of the avoid thrusts
                 ScoutThrustControls lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 200, 100, 1000);
 
+                ScoutThrustControls lWallAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mWall, 200, 100);
+
                 ScoutThrustControls lCombatDroneAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mCombatDrones);
 
                 ScoutThrustControls lFactoryDroneAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mFactoryDrones);
@@ -893,6 +895,10 @@ namespace SpaceChaseLib
                 lTotalThrust.ThrustForward += lBlackHoleAvoidThrust.ThrustForward;
                 lTotalThrust.ThrustRight += lBlackHoleAvoidThrust.ThrustRight;
                 lTotalThrust.ThrustCW += lBlackHoleAvoidThrust.ThrustCW;
+
+                lTotalThrust.ThrustForward += lWallAvoidThrust.ThrustForward;
+                lTotalThrust.ThrustRight += lWallAvoidThrust.ThrustRight;
+                lTotalThrust.ThrustCW += lWallAvoidThrust.ThrustCW;
 
                 lTotalThrust.ThrustForward += lCombatDroneAvoidThrust.ThrustForward;
                 lTotalThrust.ThrustRight += lCombatDroneAvoidThrust.ThrustRight;
@@ -1009,6 +1015,7 @@ namespace SpaceChaseLib
             public void Initialize(Map aMap)
             {
                 mMap = aMap;
+                mMap.CreateWallDictionary();
             }
 
             /// <summary>
@@ -1266,11 +1273,6 @@ namespace SpaceChaseLib
                 return lThrustToTarget;
             }
 
-            public void SetupJavelin()
-            {
-
-            }
-
 
             /// <summary>
             /// Calculates the thrust needed to avoid any number of black holes close to the scout.
@@ -1310,50 +1312,6 @@ namespace SpaceChaseLib
                 return lTotalAvoidanceThrust;
             }
 
-
-            /// <summary>
-            /// Gets the thrust value needed to avoid walls
-            /// </summary>
-            /// <param name="aAvoidDistance">The distance the scout must be within in order to get an avoidance value. (adjusts side thrust only)</param>
-            /// <param name="aDangerDistance">The distance the scout must be within in order to be considered in danger. (adjusts side and forward thrust)</param>
-            /// <param name="aCriticalDistance">The distance the scout must be within in order to be considered critical. (adjusts angular thrust) </param>
-            /// <param name="aThrustToDistanceStrength">A constant value that determines the thrust output based on the distance from the object. Higher == more thrust</param>
-            /// <returns>Avoidance thrust for walls.</returns>
-            //private pose getWallAvoidThrust(double aAvoidDistance, double aDangerDistance, double aCriticalDistance, double aThrustToDistanceStrength)
-            //{
-            //    double lRangeToObject = 0;
-            //    double thrust = 0;
-            //    pose lTotalAvoidanceThrust = new pose();
-
-            //    double lMaxMapSize = 1500;
-            //    double lMinMapSize = -1500;
-
-            //    double lDistanceToPosXWall = lMaxMapSize - mMap.mScoutPose.X;
-            //    double lDistanceToNegXWall = -(lMinMapSize - mMap.mScoutPose.X);
-
-            //    double lDistanceToPosYWall = lMaxMapSize - mMap.mScoutPose.Y;
-            //    double lDistanceToNegYWall = -(lMinMapSize - mMap.mScoutPose.Y);
-
-            //    //if the scout is within lAvoidDistance of the Pos X wall, take action.
-            //    if (lDistanceToPosXWall < aAvoidDistance)
-            //    {
-
-            //        thrust += aThrustToDistanceStrength / lDistanceToPosXWall;
-            //        double lAngleToWall = mMap.CalculateRelativeAngleFromScout(lMaxMapSize, mMap.mScoutPose.Y);
-
-            //        //adds the flee thrust to the total avoidance thrust
-            //        pose lTempAvoidThrust = GetFleePoint(0, thrust, lAngleToWall);
-            //        lTotalAvoidanceThrust.X += lTempAvoidThrust.X;
-
-            //        if (lDistanceToPosXWall < aDangerDistance)
-            //            lTotalAvoidanceThrust.Y += lTempAvoidThrust.Y;
-            //        //else if (lDistanceToPosXWall < aCriticalDistance)
-            //            //lTotalAvoidanceThrust = MoveToTarget(lTempAvoidThrust.X, lTempAvoidThrust.Y, 10);
-
-            //    }
-            //    //UNFINISHED METHOD
-            //    return null;
-            //}
 
             /// <summary>
             /// Gets the flee point from a given point.
@@ -1418,6 +1376,7 @@ namespace SpaceChaseLib
             public Dictionary<int, GlobalForeignObject> mDistortions = new Dictionary<int, GlobalForeignObject>();
             public Dictionary<int, GlobalForeignObject> mCombatDrones = new Dictionary<int, GlobalForeignObject>();
             public Dictionary<int, GlobalForeignObject> mFactoryDrones = new Dictionary<int, GlobalForeignObject>();
+            public Dictionary<int, GlobalForeignObject> mWall = new Dictionary<int, GlobalForeignObject>();
 
             public const double COLLECTION_RANGE = 70;
 
@@ -1432,6 +1391,7 @@ namespace SpaceChaseLib
                 mDistortions.Clear();
                 mCombatDrones.Clear();
                 mFactoryDrones.Clear();
+
 
             }
 
@@ -1466,6 +1426,62 @@ namespace SpaceChaseLib
 
                     }
                 }
+            }
+
+            public void CreateWallDictionary()
+            {
+                //A bit hacky, I need this to be a dictionary even though it has no bussiness being a dictionary. The wall key has no real info other then distinguishing objects.
+                int lWallKey = 0;
+
+                //Adds every location of the top wall.
+                int lYValue = 1500;
+                for (int iXValue = -1500; iXValue < 1500; iXValue++)
+                {
+                    GlobalForeignObject lWallGFO = new GlobalForeignObject();
+                    lWallGFO.mTypeOfObject = ObjectType.Wall;
+                    lWallGFO.mXCoord = iXValue;
+                    lWallGFO.mYCoord = lYValue;
+                    mWall.Add(lWallKey, lWallGFO);
+                    lWallKey++;
+                }
+
+                //Adds every location of the bottom wall.
+                lYValue = -1500;
+                for (int iXValue = -1500; iXValue < 1500; iXValue++)
+                {
+                    GlobalForeignObject lWallGFO = new GlobalForeignObject();
+                    lWallGFO.mTypeOfObject = ObjectType.Wall;
+                    lWallGFO.mXCoord = iXValue;
+                    lWallGFO.mYCoord = lYValue;
+                    mWall.Add(lWallKey, lWallGFO);
+                    lWallKey++;
+                }
+
+                //Adds every location of the left wall.
+                int lXValue = -1500;
+                for (int iYValue = -1499; iYValue < 1500; iYValue++)
+                {
+                    GlobalForeignObject lWallGFO = new GlobalForeignObject();
+                    lWallGFO.mTypeOfObject = ObjectType.Wall;
+                    lWallGFO.mXCoord = lXValue;
+                    lWallGFO.mYCoord = iYValue;
+                    mWall.Add(lWallKey, lWallGFO);
+                    lWallKey++;
+                }
+
+                //Adds every location of the right wall.
+                lXValue = 1500;
+                for (int iYValue = -1499; iYValue < 1500; iYValue++)
+                {
+                    GlobalForeignObject lWallGFO = new GlobalForeignObject();
+                    lWallGFO.mTypeOfObject = ObjectType.Wall;
+                    lWallGFO.mXCoord = lXValue;
+                    lWallGFO.mYCoord = iYValue;
+                    mWall.Add(lWallKey, lWallGFO);
+                    lWallKey++;
+                }
+
+
             }
 
             /// <summary>

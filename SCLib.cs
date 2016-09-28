@@ -846,14 +846,20 @@ namespace SpaceChaseLib
             {
                 ScoutThrustControls lTotalThrust = new ScoutThrustControls();
                 ScoutThrustControls lWaypointThrust = new ScoutThrustControls();
+                pose lClosestBlackHole = new pose();
 
                 int lBHOrbitRange = 450;
-                bool lIsValidTarget = mMap.mBlackHoles.Count > 0;
+                bool lIsBlackHoleDetected = mMap.mBlackHoles.Count > 0;
+                bool lIsValidTarget = lIsBlackHoleDetected;
+
+                //If there is a black hole, get the closest one.
+                if (lIsBlackHoleDetected)
+                    lClosestBlackHole = mMap.GetClosestObject(mMap.mBlackHoles);
 
 
                 if (mMap.mBlackHoles.Count > 1)
                 {
-                    pose lClosestBlackHole = mMap.GetClosestObject(mMap.mBlackHoles);
+
                     double lDistanceAwayFromOtherBH = mMap.GetDistanceOfClosestObjectFromPoint(lClosestBlackHole, mMap.mBlackHoles);
                     double lValidBHTargetDistance = 300;
                     lIsValidTarget = lDistanceAwayFromOtherBH > lValidBHTargetDistance;
@@ -908,6 +914,18 @@ namespace SpaceChaseLib
 
                 ScoutThrustControls lAsteroidAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mAsteroids, 100, 50, 5);
 
+
+                //if the scout is very close to a black hole, override other thrust and leave the danger zone.
+                if (lIsBlackHoleDetected && mMap.CalculateDistanceFromScout(lClosestBlackHole.X, lClosestBlackHole.Y) < 100)
+                {
+                    lTotalThrust.ThrustForward = lBlackHoleAvoidThrust.ThrustForward;
+                    lTotalThrust.ThrustRight = lBlackHoleAvoidThrust.ThrustRight;
+                    lTotalThrust.ThrustCW = lBlackHoleAvoidThrust.ThrustCW;
+
+                    mScoutThrustControls = mNavigation.ApplyPID(lTotalThrust, mScoutState);
+                    mScoutActionControls = GetActionControls();
+                    return;
+                }
 
 
                 //weight everything

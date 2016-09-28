@@ -673,12 +673,6 @@ namespace SpaceChaseLib
                     {
                         mReportObject.complete = true;
                     }
-
-                    //Turns on the miner if close enough
-                    if (lDistanceToCollectionPoint < 15)
-                    {
-                        mScoutActionControls.MinerOn = true;
-                    }
                     think(500, 1);
 
                 }
@@ -699,7 +693,6 @@ namespace SpaceChaseLib
 
                     mNavigation.ReplaceWaypointAtFront(lCollectionPoint);
 
-                    //Turns on the miner if close enough
                     if (lDistanceToCollectionPoint < 15)
                     {
                         mScoutActionControls.MinerOn = true;
@@ -718,16 +711,15 @@ namespace SpaceChaseLib
 
                     mNavigation.ReplaceWaypointAtFront(lCollectionPoint);
 
-                    //Turns on the miner if close enough
                     if (lDistanceToCollectionPoint < 15)
                     {
                         mReportObject.complete = true;
-                        mScoutActionControls.EnergyExtractorOn = true;
                     }
 
                     if (mScoutState.shieldEnergy == 1)
                     {
                         mScoutActionControls.ShieldOn = true;
+                        return;
                     }
                     think(500, 1);
                 }
@@ -904,7 +896,7 @@ namespace SpaceChaseLib
 
 
                 //get all of the avoid thrusts
-                ScoutThrustControls lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 250, 10000);
+                ScoutThrustControls lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 300, 10000);
 
                 ScoutThrustControls lWallAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mWall, 200, 100, 1000);
 
@@ -916,7 +908,7 @@ namespace SpaceChaseLib
 
 
                 //if the scout is very close to a black hole, override other thrust and leave the danger zone.
-                if (lIsBlackHoleDetected && mMap.CalculateDistanceFromScout(lClosestBlackHole.X, lClosestBlackHole.Y) < 100)
+                if (lIsBlackHoleDetected && mMap.CalculateDistanceFromScout(lClosestBlackHole.X, lClosestBlackHole.Y) < 300)
                 {
                     lTotalThrust.ThrustForward = lBlackHoleAvoidThrust.ThrustForward;
                     lTotalThrust.ThrustRight = lBlackHoleAvoidThrust.ThrustRight;
@@ -1001,13 +993,13 @@ namespace SpaceChaseLib
                     pose lClosestAsteroid = mMap.GetClosestObject(mMap.mAsteroids);
                     double lDistanceToAsteroid = mMap.CalculateDistanceFromScout(lClosestAsteroid.X, lClosestAsteroid.Y);
                     double lCriticalAsteroidDistance = 50;
-                    double lMiningDistance = 70;
+                    double lMiningDistance = 85;
 
                     if (lDistanceToAsteroid < lCriticalAsteroidDistance && mScoutState.hullIntegrity < 0.25)
                     {
                         lScoutActionControls.ShieldOn = true;
                     }
-                    if (lDistanceToAsteroid < lMiningDistance)
+                    if (lDistanceToAsteroid < lMiningDistance && mScoutState.hullIntegrity <= 1)
                     {
                         lScoutActionControls.MinerOn = true;
                     }
@@ -1017,9 +1009,9 @@ namespace SpaceChaseLib
                 {
                     pose lClosestDistortion = mMap.GetClosestObject(mMap.mDistortions);
                     double lDistanceToDistortion = mMap.CalculateDistanceFromScout(lClosestDistortion.X, lClosestDistortion.Y);
-                    double lExtractionDistance = 70;
+                    double lExtractionDistance = 85;
 
-                    if (lDistanceToDistortion < lExtractionDistance)
+                    if (lDistanceToDistortion < lExtractionDistance && mScoutState.shieldEnergy <= 1)
                     {
                         lScoutActionControls.EnergyExtractorOn = true;
                     }
@@ -1326,6 +1318,7 @@ namespace SpaceChaseLib
             {
                 ScoutThrustControls lTotalAvoidanceThrust = new ScoutThrustControls();
                 int lObjectsInRangeCount = 0;
+                int lCriticalObjectsCount = 0;
 
                 foreach (KeyValuePair<int, GlobalForeignObject> iAvoidObjectValuePair in aObjects)
                 {
@@ -1336,13 +1329,14 @@ namespace SpaceChaseLib
                     if (lRangeToObject < aAvoidDistance)
                     {
                         lObjectsInRangeCount++;
-                        ScoutThrustControls lThrustAwayFromObject = MoveAwayFromTarget(iAvoidObjectValuePair.Value.mXCoord, iAvoidObjectValuePair.Value.mXCoord, aSpeedup);
+                        ScoutThrustControls lThrustAwayFromObject = MoveAwayFromTarget(iAvoidObjectValuePair.Value.mXCoord, iAvoidObjectValuePair.Value.mYCoord, aSpeedup);
 
                         lTotalAvoidanceThrust.ThrustRight += lThrustAwayFromObject.ThrustRight;
 
                         // If the angle is within the cone or super close act on other thrust
                         if ((lAngleToObject < Math.PI / 3 && lAngleToObject > 0 - Math.PI / 3) || (lAngleToObject > (Math.PI * 2 - Math.PI / 3)) || lRangeToObject < aCriticalDistance)
                         {
+                            lCriticalObjectsCount++;
                             lTotalAvoidanceThrust.ThrustForward += lThrustAwayFromObject.ThrustForward;
                             lTotalAvoidanceThrust.ThrustCW += lThrustAwayFromObject.ThrustCW;
                         }
@@ -1352,7 +1346,16 @@ namespace SpaceChaseLib
                 }
                 //get the average thrust for the right thruster
                 if (lObjectsInRangeCount != 0)
+                {
                     lTotalAvoidanceThrust.ThrustRight = lTotalAvoidanceThrust.ThrustRight / lObjectsInRangeCount;
+
+                    if (lCriticalObjectsCount != 0)
+                    {
+                        lTotalAvoidanceThrust.ThrustForward = lTotalAvoidanceThrust.ThrustForward / lCriticalObjectsCount;
+                        lTotalAvoidanceThrust.ThrustCW = lTotalAvoidanceThrust.ThrustCW / lCriticalObjectsCount;
+                    }
+
+                }
                 return lTotalAvoidanceThrust;
             }
 

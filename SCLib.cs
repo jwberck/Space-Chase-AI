@@ -859,21 +859,28 @@ namespace SpaceChaseLib
                     //If the scout is in orbit range, wait for enemies to get in critical distance.
                     if (lDistancetoBH < lBHOrbitRange)
                     {
-                        if (isJavelinActive)
-                        {
-                            mScoutThrustControls = mNavigation.MoveToWaypoint(1, 50);
-                            return;
-                        }
+                        mNavigation.ReplaceWaypointAtFront(mMap.CalculateJavelinMidPoint(lClosestBH.X, lClosestBH.Y));
+                        ScoutThrustControls lJavThrust = mNavigation.MoveToWaypoint(1, 50);
+                        mScoutThrustControls = mNavigation.ApplyPID(lJavThrust, mScoutState);
+                        return;
+
+
+                        //if (isJavelinActive)
+                        //{
+                        //    mNavigation.ReplaceWaypointAtFront(mMap.CalculateJavelinMidPoint(lClosestBH.X, lClosestBH.Y));
+                        //    mScoutThrustControls = mNavigation.MoveToWaypoint(1,50);
+                        //    return;
+                        //}
 
 
                         //If a drone is in critical distance of the scout, then move to the opposite side of the black hole.
-                        else if (mMap.NumberOfObjectsInRange(mMap.mCombatDrones, lCombatDroneCritRange) > 0 || mMap.NumberOfObjectsInRange(mMap.mFactoryDrones, lFactoryDroneCritRange) > 0)
-                        {
-                            mNavigation.AddWaypointToFront(mMap.CalculateJavelinEndPoint(lClosestBH.X, lClosestBH.Y));
-                            mNavigation.AddWaypointToFront(mMap.CalculateJavelinMidPoint(lClosestBH.X, lClosestBH.Y));
-                            isJavelinActive = true;
-                            return;
-                        }
+                        //else if (mMap.NumberOfObjectsInRange(mMap.mCombatDrones, lCombatDroneCritRange) > 0 || mMap.NumberOfObjectsInRange(mMap.mFactoryDrones, lFactoryDroneCritRange) > 0)
+                        //{
+                        //    //mNavigation.AddWaypointToFront(mMap.CalculateJavelinEndPoint(lClosestBH.X, lClosestBH.Y));
+                        //    //mNavigation.AddWaypointToFront(mMap.CalculateJavelinMidPoint(lClosestBH.X, lClosestBH.Y));
+                        //    isJavelinActive = true;
+                        //    return;
+                        //}
 
 
                     }
@@ -1133,7 +1140,6 @@ namespace SpaceChaseLib
 
                 lThrustToTarget.ThrustCW = requiredCWVel;
 
-                //mRotationalPID.CalculateThrust(requiredCWVel, mScoutState.currentVelocityAngularCW);
 
 
 
@@ -1447,10 +1453,13 @@ namespace SpaceChaseLib
 
             public pose CalculateJavelinMidPoint(double aBHX, double aBHY)
             {
-                double lCollecitonDistance = CalculateDistanceFromScout(aBHX, aBHY);
-                double lCollectionAngle = CalculateRelativeAngleFromScout(aBHX, aBHY) - Math.PI / 10;
+                double lDistanceToMidpoint = CalculateDistanceFromScout(aBHX, aBHY) + 50;
 
-                return CalculateGlobalPosition(lCollecitonDistance, lCollectionAngle);
+                // use arctan to find angle to point
+
+                double lAngleToMidpoint = CalculateRelativeAngleFromScout(aBHX, aBHY) - Math.PI / 2;
+
+                return CalculateGlobalPosition(lDistanceToMidpoint, lAngleToMidpoint);
             }
 
             public pose CalculateGlobalPosition(double aRangeToTarget, double aRelativeAngleToTarget)

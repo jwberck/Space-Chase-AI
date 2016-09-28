@@ -626,6 +626,9 @@ namespace SpaceChaseLib
                     case 5:
                         InTask5();
                         break;
+                    case 6:
+                        InTask6();
+                        break;
 
                 }
             }
@@ -747,6 +750,10 @@ namespace SpaceChaseLib
                 think();
             }
 
+            private void InTask6()
+            {
+                think();
+            }
 
             public void EndTask(int task, bool IsScoutAlive)
             {
@@ -835,26 +842,38 @@ namespace SpaceChaseLib
                 isJavelinActive = false;
             }
 
-            public void think(double aSlowdown = 200, double aAccuracy = 200)
+            public void think(double aSlowdown = 1, double aAccuracy = 300)
             {
                 ScoutThrustControls lTotalThrust = new ScoutThrustControls();
                 ScoutThrustControls lWaypointThrust = new ScoutThrustControls();
 
+                int lBHOrbitRange = 450;
+                bool lIsValidTarget = mMap.mBlackHoles.Count > 0;
+
+
+                if (mMap.mBlackHoles.Count > 1)
+                {
+                    pose lClosestBlackHole = mMap.GetClosestObject(mMap.mBlackHoles);
+                    double lDistanceAwayFromOtherBH = mMap.GetDistanceOfClosestObjectFromPoint(lClosestBlackHole, mMap.mBlackHoles);
+                    double lValidBHTargetDistance = 300;
+                    lIsValidTarget = lDistanceAwayFromOtherBH > lValidBHTargetDistance;
+                }
+
 
 
                 //Executes javalin prcedure if drones are in range and a black hole is detected
-                if ((mMap.NumberOfObjectsInRange(mMap.mCombatDrones, 700) > 0 || mMap.NumberOfObjectsInRange(mMap.mFactoryDrones, 400) > 0) && mMap.mBlackHoles.Count > 0)
+                if ((mMap.NumberOfObjectsInRange(mMap.mCombatDrones, 800) > 0 || mMap.NumberOfObjectsInRange(mMap.mFactoryDrones, 500) > 0) && lIsValidTarget)
                 {
-                    int lBHOrbitRange = 450;
 
-                    pose lClosestBH = mMap.GetClosestObject(mMap.mBlackHoles);
-                    double lDistancetoBH = mMap.CalculateDistanceFromScout(lClosestBH.X, lClosestBH.Y);
+
+                    pose lTargetBlackHole = mMap.GetClosestObject(mMap.mBlackHoles);
+                    double lDistancetoBH = mMap.CalculateDistanceFromScout(lTargetBlackHole.X, lTargetBlackHole.Y);
 
                     //If the scout is in orbit range, wait for enemies to get in critical distance.
                     if (lDistancetoBH < lBHOrbitRange)
                     {
-                        mNavigation.ReplaceWaypointAtFront(mMap.CalculateJavelinMidPoint(lClosestBH.X, lClosestBH.Y));
-                        ScoutThrustControls lJavThrust = mNavigation.MoveToWaypoint(1, 50);
+                        pose lJavMidpoint = mMap.CalculateJavelinMidPoint(lTargetBlackHole.X, lTargetBlackHole.Y);
+                        ScoutThrustControls lJavThrust = mNavigation.MoveToTarget(lJavMidpoint.X, lJavMidpoint.Y, 1);
                         mScoutThrustControls = mNavigation.ApplyPID(lJavThrust, mScoutState);
                         mScoutActionControls = GetActionControls();
                         return;
@@ -862,7 +881,7 @@ namespace SpaceChaseLib
 
                     }
                     //Find orbit point
-                    pose BHOrbitPoint = mMap.CalculateOrbitPoint(lClosestBH.X, lClosestBH.Y, 400);
+                    pose BHOrbitPoint = mMap.CalculateOrbitPoint(lTargetBlackHole.X, lTargetBlackHole.Y, 400);
 
                     //Moves to orbit point
                     lWaypointThrust = mNavigation.MoveToTarget(BHOrbitPoint.X, BHOrbitPoint.Y, 50);
@@ -879,9 +898,9 @@ namespace SpaceChaseLib
 
 
                 //get all of the avoid thrusts
-                ScoutThrustControls lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 200, 100, 1000);
+                ScoutThrustControls lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 250, 10000);
 
-                ScoutThrustControls lWallAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mWall, 200, 100);
+                ScoutThrustControls lWallAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mWall, 200, 100, 1000);
 
                 ScoutThrustControls lCombatDroneAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mCombatDrones);
 
@@ -1567,6 +1586,42 @@ namespace SpaceChaseLib
                 return lClosetCoords;
             }
 
+            /// <summary>
+            /// Gets the distance from one object to the next closest object
+            /// </summary>
+            /// <param name="aPoint"></param>
+            /// <param name="aObjects"></param>
+            /// <returns>The distance to the object, returns 3000 if there are no other objects.</returns>
+            public double GetDistanceOfClosestObjectFromPoint(pose aPoint, Dictionary<int, GlobalForeignObject> aObjects)
+            {
+                double lClosetObjectDistance = 3000;
+
+                foreach (KeyValuePair<int, GlobalForeignObject> iObjectKeyValue in aObjects)
+                {
+                    //dont count the object itsself!
+                    if (iObjectKeyValue.Value.mXCoord == aPoint.X && iObjectKeyValue.Value.mYCoord == aPoint.Y)
+                    {
+                        continue;
+                    }
+
+                    double lDistanceToThisObject = CalculateDistanceFromPoint(aPoint.X, aPoint.Y, iObjectKeyValue.Value.mXCoord, iObjectKeyValue.Value.mYCoord);
+
+                    //If the object in this itteration is closer then the closest object, replace it.
+                    if (lDistanceToThisObject < lClosetObjectDistance)
+                    {
+                        lClosetObjectDistance = lDistanceToThisObject;
+                    }
+                }
+
+                return lClosetObjectDistance;
+            }
+
+            private double CalculateDistanceFromPoint(double aPointAX, double aPointAY, double aPointBX, double aPointBY)
+            {
+                double deltaX = aPointAX - aPointBX;
+                double deltaY = aPointAY - aPointBY;
+                return Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
+            }
 
 
 

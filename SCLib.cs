@@ -843,18 +843,12 @@ namespace SpaceChaseLib
 
 
                 //Executes javalin prcedure if drones are in range and a black hole is detected
-                if ((mMap.NumberOfObjectsInRange(mMap.mCombatDrones, 1000) > 0 || mMap.NumberOfObjectsInRange(mMap.mCombatDrones, 500) > 0) && mMap.mBlackHoles.Count > 0)
+                if ((mMap.NumberOfObjectsInRange(mMap.mCombatDrones, 700) > 0 || mMap.NumberOfObjectsInRange(mMap.mFactoryDrones, 400) > 0) && mMap.mBlackHoles.Count > 0)
                 {
                     int lBHOrbitRange = 450;
-                    int lCombatDroneCritRange = 200;
-                    int lFactoryDroneCritRange = 150;
 
                     pose lClosestBH = mMap.GetClosestObject(mMap.mBlackHoles);
                     double lDistancetoBH = mMap.CalculateDistanceFromScout(lClosestBH.X, lClosestBH.Y);
-
-
-
-
 
                     //If the scout is in orbit range, wait for enemies to get in critical distance.
                     if (lDistancetoBH < lBHOrbitRange)
@@ -862,43 +856,20 @@ namespace SpaceChaseLib
                         mNavigation.ReplaceWaypointAtFront(mMap.CalculateJavelinMidPoint(lClosestBH.X, lClosestBH.Y));
                         ScoutThrustControls lJavThrust = mNavigation.MoveToWaypoint(1, 50);
                         mScoutThrustControls = mNavigation.ApplyPID(lJavThrust, mScoutState);
+                        mScoutActionControls = GetActionControls();
                         return;
 
 
-                        //if (isJavelinActive)
-                        //{
-                        //    mNavigation.ReplaceWaypointAtFront(mMap.CalculateJavelinMidPoint(lClosestBH.X, lClosestBH.Y));
-                        //    mScoutThrustControls = mNavigation.MoveToWaypoint(1,50);
-                        //    return;
-                        //}
-
-
-                        //If a drone is in critical distance of the scout, then move to the opposite side of the black hole.
-                        //else if (mMap.NumberOfObjectsInRange(mMap.mCombatDrones, lCombatDroneCritRange) > 0 || mMap.NumberOfObjectsInRange(mMap.mFactoryDrones, lFactoryDroneCritRange) > 0)
-                        //{
-                        //    //mNavigation.AddWaypointToFront(mMap.CalculateJavelinEndPoint(lClosestBH.X, lClosestBH.Y));
-                        //    //mNavigation.AddWaypointToFront(mMap.CalculateJavelinMidPoint(lClosestBH.X, lClosestBH.Y));
-                        //    isJavelinActive = true;
-                        //    return;
-                        //}
-
-
                     }
-                    //travel to orbit point
-
+                    //Find orbit point
                     pose BHOrbitPoint = mMap.CalculateOrbitPoint(lClosestBH.X, lClosestBH.Y, 400);
 
-                    //Moves to the closest black holes orbit.
-                    lWaypointThrust = mNavigation.MoveToTarget(BHOrbitPoint.X, BHOrbitPoint.Y, 100);
-                    isJavelinActive = false;
-
-
-
+                    //Moves to orbit point
+                    lWaypointThrust = mNavigation.MoveToTarget(BHOrbitPoint.X, BHOrbitPoint.Y, 50);
                 }
 
                 else
                 {
-                    isJavelinActive = false;
                     lWaypointThrust = mNavigation.MoveToWaypoint(aSlowdown, aAccuracy);
                 }
 
@@ -946,6 +917,72 @@ namespace SpaceChaseLib
 
                 //use PID calcuations and apply them to scout thrust.
                 mScoutThrustControls = mNavigation.ApplyPID(lTotalThrust, mScoutState);
+                mScoutActionControls = GetActionControls();
+            }
+
+            private ScoutActionControls GetActionControls()
+            {
+                ScoutActionControls lScoutActionControls = new ScoutActionControls();
+                lScoutActionControls.ShieldOn = false;
+                lScoutActionControls.MinerOn = false;
+
+                if (mMap.mFactoryDrones.Count > 0)
+                {
+                    //Activates shield if factory is in critical distance.
+                    pose lClosestFactory = mMap.GetClosestObject(mMap.mFactoryDrones);
+                    double lDistanceToFactory = mMap.CalculateDistanceFromScout(lClosestFactory.X, lClosestFactory.Y);
+                    double lCriticalFactoryDistance = 100;
+
+                    if (lDistanceToFactory < lCriticalFactoryDistance)
+                    {
+                        lScoutActionControls.ShieldOn = true;
+                    }
+                }
+
+                if (mMap.mCombatDrones.Count > 0)
+                {
+                    //Activates shield if combat drone is in critical distance.
+                    pose lClosestCombatDrone = mMap.GetClosestObject(mMap.mCombatDrones);
+                    double lDistanceToCombatDrone = mMap.CalculateDistanceFromScout(lClosestCombatDrone.X, lClosestCombatDrone.Y);
+                    double lCriticalCombatDroneDistance = 60;
+
+                    if (lDistanceToCombatDrone < lCriticalCombatDroneDistance && mScoutState.hullIntegrity < 0.5)
+                    {
+                        lScoutActionControls.ShieldOn = true;
+                    }
+                }
+
+                if (mMap.mAsteroids.Count > 0)
+                {
+                    //Activates shield if asteroid is in critical distance and health is low. Also Mines asteroid if its within mining distance.
+                    pose lClosestAsteroid = mMap.GetClosestObject(mMap.mAsteroids);
+                    double lDistanceToAsteroid = mMap.CalculateDistanceFromScout(lClosestAsteroid.X, lClosestAsteroid.Y);
+                    double lCriticalAsteroidDistance = 50;
+                    double lMiningDistance = 70;
+
+                    if (lDistanceToAsteroid < lCriticalAsteroidDistance && mScoutState.hullIntegrity < 0.25)
+                    {
+                        lScoutActionControls.ShieldOn = true;
+                    }
+                    if (lDistanceToAsteroid < lMiningDistance)
+                    {
+                        lScoutActionControls.MinerOn = true;
+                    }
+                }
+
+                if (mMap.mDistortions.Count > 0)
+                {
+                    pose lClosestDistortion = mMap.GetClosestObject(mMap.mDistortions);
+                    double lDistanceToDistortion = mMap.CalculateDistanceFromScout(lClosestDistortion.X, lClosestDistortion.Y);
+                    double lExtractionDistance = 70;
+
+                    if (lDistanceToDistortion < lExtractionDistance)
+                    {
+                        lScoutActionControls.EnergyExtractorOn = true;
+                    }
+                }
+                return lScoutActionControls;
+
             }
 
 
@@ -1077,7 +1114,7 @@ namespace SpaceChaseLib
             /// </summary>
             /// <param name="aSlowdown">A constant that determines how much the thrust descreases with distance to the target. A larger number slows it more dramatically, enter 1 for no slowdown.</param>
             /// <param name="aAccuracy"></param>
-            public ScoutThrustControls MoveToWaypoint(double aSlowdown = 200, double aAccuracy = 100)
+            public ScoutThrustControls MoveToWaypoint(double aSlowdown = 200, double aAccuracy = 100, double aAngularVelSharpness = 40)
             {
                 //Makes sure that momevemnt is not attempted until a path exists.
                 if (mPath.Count < 2)
@@ -1092,7 +1129,7 @@ namespace SpaceChaseLib
                 {
                     mPath.RemoveAt(0);
                 }
-                return MoveToTarget(mPath[0].X, mPath[0].Y, aSlowdown);
+                return MoveToTarget(mPath[0].X, mPath[0].Y, aSlowdown, aAngularVelSharpness);
 
 
 
@@ -1404,6 +1441,9 @@ namespace SpaceChaseLib
             /// <param name="aRelativeForeignObjects"></param>
             public void UpdateMap(List<RelativeForeignObject> aRelativeForeignObjects)
             {
+                mCombatDrones.Clear();
+                mFactoryDrones.Clear();
+
                 foreach (RelativeForeignObject iRelativeForeignObject in aRelativeForeignObjects)
                 {
                     switch (iRelativeForeignObject.mTypeOfObject)
@@ -1483,6 +1523,7 @@ namespace SpaceChaseLib
 
             public pose GetClosestObject(Dictionary<int, GlobalForeignObject> aObjects)
             {
+
                 int lClosetObjectKey = aObjects.Keys.First();
 
                 foreach (KeyValuePair<int, GlobalForeignObject> iObjectKeyValue in aObjects)

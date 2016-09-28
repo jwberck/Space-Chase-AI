@@ -987,6 +987,13 @@ namespace SpaceChaseLib
                         lScoutActionControls.EnergyExtractorOn = true;
                     }
                 }
+
+                //Turns on shield if out of bounds
+                if (mMap.mScoutPose.X > 1500 || mMap.mScoutPose.X < -1500 || mMap.mScoutPose.Y > 1500 || mMap.mScoutPose.Y < -1500)
+                {
+                    lScoutActionControls.ShieldOn = true;
+                }
+
                 return lScoutActionControls;
 
             }

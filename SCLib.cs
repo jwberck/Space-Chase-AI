@@ -896,9 +896,9 @@ namespace SpaceChaseLib
 
 
                 //get all of the avoid thrusts
-                ScoutThrustControls lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 300, 10000);
+                ScoutThrustControls lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 200, 1000);
 
-                ScoutThrustControls lWallAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mWall, 200, 100, 1000);
+                ScoutThrustControls lWallAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mWall, 300, 200, 1000);
 
                 ScoutThrustControls lCombatDroneAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mCombatDrones);
 
@@ -908,7 +908,7 @@ namespace SpaceChaseLib
 
 
                 //if the scout is very close to a black hole, override other thrust and leave the danger zone.
-                if (lIsBlackHoleDetected && mMap.CalculateDistanceFromScout(lClosestBlackHole.X, lClosestBlackHole.Y) < 300)
+                if (lIsBlackHoleDetected && mMap.CalculateDistanceFromScout(lClosestBlackHole.X, lClosestBlackHole.Y) < 150)
                 {
                     lTotalThrust.ThrustForward = lBlackHoleAvoidThrust.ThrustForward;
                     lTotalThrust.ThrustRight = lBlackHoleAvoidThrust.ThrustRight;
@@ -953,6 +953,12 @@ namespace SpaceChaseLib
                 //use PID calcuations and apply them to scout thrust.
                 mScoutThrustControls = mNavigation.ApplyPID(lTotalThrust, mScoutState);
                 mScoutActionControls = GetActionControls();
+
+                //Turns on shield if out of bounds
+                if (mMap.mScoutPose.X > 1500 || mMap.mScoutPose.X < -1500 || mMap.mScoutPose.Y > 1500 || mMap.mScoutPose.Y < -1500)
+                {
+                    mScoutThrustControls = mNavigation.ApplyPID(mNavigation.MoveToTarget(0, 0, 1), mScoutState);
+                }
             }
 
             private ScoutActionControls GetActionControls()
@@ -1349,11 +1355,11 @@ namespace SpaceChaseLib
                 {
                     lTotalAvoidanceThrust.ThrustRight = lTotalAvoidanceThrust.ThrustRight / lObjectsInRangeCount;
 
-                    if (lCriticalObjectsCount != 0)
-                    {
-                        lTotalAvoidanceThrust.ThrustForward = lTotalAvoidanceThrust.ThrustForward / lCriticalObjectsCount;
-                        lTotalAvoidanceThrust.ThrustCW = lTotalAvoidanceThrust.ThrustCW / lCriticalObjectsCount;
-                    }
+                    //if (lCriticalObjectsCount != 0)
+                    //{
+                    //    lTotalAvoidanceThrust.ThrustForward = lTotalAvoidanceThrust.ThrustForward / lCriticalObjectsCount;
+                    //    lTotalAvoidanceThrust.ThrustCW = lTotalAvoidanceThrust.ThrustCW / lCriticalObjectsCount;
+                    //}
 
                 }
                 return lTotalAvoidanceThrust;
@@ -1482,7 +1488,7 @@ namespace SpaceChaseLib
 
                 //Adds every location of the top wall.
                 int lYValue = 1500;
-                for (int iXValue = -1500; iXValue < 1500; iXValue++)
+                for (int iXValue = -1500; iXValue < 1500; iXValue += 5)
                 {
                     GlobalForeignObject lWallGFO = new GlobalForeignObject();
                     lWallGFO.mTypeOfObject = ObjectType.Wall;
@@ -1494,7 +1500,7 @@ namespace SpaceChaseLib
 
                 //Adds every location of the bottom wall.
                 lYValue = -1500;
-                for (int iXValue = -1500; iXValue < 1500; iXValue++)
+                for (int iXValue = -1500; iXValue < 1500; iXValue += 5)
                 {
                     GlobalForeignObject lWallGFO = new GlobalForeignObject();
                     lWallGFO.mTypeOfObject = ObjectType.Wall;
@@ -1506,7 +1512,7 @@ namespace SpaceChaseLib
 
                 //Adds every location of the left wall.
                 int lXValue = -1500;
-                for (int iYValue = -1499; iYValue < 1500; iYValue++)
+                for (int iYValue = -1499; iYValue < 1500; iYValue += 5)
                 {
                     GlobalForeignObject lWallGFO = new GlobalForeignObject();
                     lWallGFO.mTypeOfObject = ObjectType.Wall;
@@ -1518,7 +1524,7 @@ namespace SpaceChaseLib
 
                 //Adds every location of the right wall.
                 lXValue = 1500;
-                for (int iYValue = -1499; iYValue < 1500; iYValue++)
+                for (int iYValue = -1499; iYValue < 1500; iYValue += 5)
                 {
                     GlobalForeignObject lWallGFO = new GlobalForeignObject();
                     lWallGFO.mTypeOfObject = ObjectType.Wall;

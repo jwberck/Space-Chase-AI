@@ -834,13 +834,13 @@ namespace SpaceChaseLib
                 isJavelinActive = false;
             }
 
-            public void think(double aSlowdown = 1, double aAccuracy = 300)
+            public void think(double aSlowdown = 1, double aAccuracy = 400)
             {
                 ScoutThrustControls lTotalThrust = new ScoutThrustControls();
                 ScoutThrustControls lWaypointThrust = new ScoutThrustControls();
                 pose lClosestBlackHole = new pose();
 
-                int lBHOrbitRange = 450;
+                int lBHOrbitRange = 400;
                 bool lIsBlackHoleDetected = mMap.mBlackHoles.Count > 0;
                 bool lIsValidTarget = lIsBlackHoleDetected;
 
@@ -853,8 +853,9 @@ namespace SpaceChaseLib
                 {
 
                     double lDistanceAwayFromOtherBH = mMap.GetDistanceOfClosestObjectFromPoint(lClosestBlackHole, mMap.mBlackHoles);
-                    double lValidBHTargetDistance = 300;
+                    double lValidBHTargetDistance = 350;
                     lIsValidTarget = lDistanceAwayFromOtherBH > lValidBHTargetDistance;
+                    lIsValidTarget = lIsValidTarget && lClosestBlackHole.X < 1450 && lClosestBlackHole.X > -1450 && lClosestBlackHole.Y < 1450 && lClosestBlackHole.Y > -1450;
                 }
 
 
@@ -879,10 +880,10 @@ namespace SpaceChaseLib
 
                     }
                     //Find orbit point
-                    pose BHOrbitPoint = mMap.CalculateOrbitPoint(lTargetBlackHole.X, lTargetBlackHole.Y, 400);
+                    pose BHOrbitPoint = mMap.CalculateOrbitPoint(lTargetBlackHole.X, lTargetBlackHole.Y, 350);
 
                     //Moves to orbit point
-                    lWaypointThrust = mNavigation.MoveToTarget(BHOrbitPoint.X, BHOrbitPoint.Y, 50);
+                    lWaypointThrust = mNavigation.MoveToTarget(BHOrbitPoint.X, BHOrbitPoint.Y, 200);
                 }
 
                 else
@@ -896,9 +897,9 @@ namespace SpaceChaseLib
 
 
                 //get all of the avoid thrusts
-                ScoutThrustControls lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 200, 1000);
+                ScoutThrustControls lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 250, 1200);
 
-                ScoutThrustControls lWallAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mWall, 300, 200, 1000);
+                ScoutThrustControls lWallAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mWall, 200, 100, 1200);
 
                 ScoutThrustControls lCombatDroneAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mCombatDrones);
 
@@ -908,8 +909,10 @@ namespace SpaceChaseLib
 
 
                 //if the scout is very close to a black hole, override other thrust and leave the danger zone.
-                if (lIsBlackHoleDetected && mMap.CalculateDistanceFromScout(lClosestBlackHole.X, lClosestBlackHole.Y) < 150)
+                if (lIsBlackHoleDetected && mMap.CalculateDistanceFromScout(lClosestBlackHole.X, lClosestBlackHole.Y) < 200)
                 {
+                    lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 200, 1000);
+
                     lTotalThrust.ThrustForward = lBlackHoleAvoidThrust.ThrustForward;
                     lTotalThrust.ThrustRight = lBlackHoleAvoidThrust.ThrustRight;
                     lTotalThrust.ThrustCW = lBlackHoleAvoidThrust.ThrustCW;
@@ -1337,15 +1340,28 @@ namespace SpaceChaseLib
                         lObjectsInRangeCount++;
                         ScoutThrustControls lThrustAwayFromObject = MoveAwayFromTarget(iAvoidObjectValuePair.Value.mXCoord, iAvoidObjectValuePair.Value.mYCoord, aSpeedup);
 
-                        lTotalAvoidanceThrust.ThrustRight += lThrustAwayFromObject.ThrustRight;
 
-                        // If the angle is within the cone or super close act on other thrust
-                        if ((lAngleToObject < Math.PI / 3 && lAngleToObject > 0 - Math.PI / 3) || (lAngleToObject > (Math.PI * 2 - Math.PI / 3)) || lRangeToObject < aCriticalDistance)
+
+                        if (lRangeToObject < aCriticalDistance)
                         {
-                            lCriticalObjectsCount++;
                             lTotalAvoidanceThrust.ThrustForward += lThrustAwayFromObject.ThrustForward;
                             lTotalAvoidanceThrust.ThrustCW += lThrustAwayFromObject.ThrustCW;
+                            lTotalAvoidanceThrust.ThrustRight += lThrustAwayFromObject.ThrustRight;
                         }
+
+                        // If the angle is within the cone or super close act on other thrust
+                        else if ((lAngleToObject < Math.PI / 3 && lAngleToObject > 0 - Math.PI / 3) || (lAngleToObject > (Math.PI * 2 - Math.PI / 3) && lAngleToObject < Math.PI * 2 + Math.PI / 3))
+                        {
+
+
+                            if (lThrustAwayFromObject.ThrustForward > 0)
+                            {
+                                lTotalAvoidanceThrust.ThrustForward += lThrustAwayFromObject.ThrustForward;
+                            }
+                            lTotalAvoidanceThrust.ThrustCW += lThrustAwayFromObject.ThrustCW;
+                            lTotalAvoidanceThrust.ThrustRight += lThrustAwayFromObject.ThrustRight;
+                        }
+
 
                     }
 
@@ -1353,7 +1369,7 @@ namespace SpaceChaseLib
                 //get the average thrust for the right thruster
                 if (lObjectsInRangeCount != 0)
                 {
-                    lTotalAvoidanceThrust.ThrustRight = lTotalAvoidanceThrust.ThrustRight / lObjectsInRangeCount;
+                    //lTotalAvoidanceThrust.ThrustRight = lTotalAvoidanceThrust.ThrustRight / lObjectsInRangeCount;
 
                     //if (lCriticalObjectsCount != 0)
                     //{
@@ -1764,7 +1780,7 @@ namespace SpaceChaseLib
                             aRFO.Range = 650;
                             break;
                         case ObjectType.BlackHole:
-                            aRFO.Range = 550;
+                            aRFO.Range = 450;
                             break;
                         default:
                             throw new InvalidOperationException();

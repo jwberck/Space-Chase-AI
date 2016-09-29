@@ -853,7 +853,7 @@ namespace SpaceChaseLib
                 {
 
                     double lDistanceAwayFromOtherBH = mMap.GetDistanceOfClosestObjectFromPoint(lClosestBlackHole, mMap.mBlackHoles);
-                    double lValidBHTargetDistance = 350;
+                    double lValidBHTargetDistance = 320;
                     lIsValidTarget = lDistanceAwayFromOtherBH > lValidBHTargetDistance;
                     lIsValidTarget = lIsValidTarget && lClosestBlackHole.X < 1450 && lClosestBlackHole.X > -1450 && lClosestBlackHole.Y < 1450 && lClosestBlackHole.Y > -1450;
                 }
@@ -861,7 +861,7 @@ namespace SpaceChaseLib
 
 
                 //Executes javalin prcedure if drones are in range and a black hole is detected
-                if ((mMap.NumberOfObjectsInRange(mMap.mCombatDrones, 800) > 0 || mMap.NumberOfObjectsInRange(mMap.mFactoryDrones, 500) > 0) && lIsValidTarget)
+                if (((mMap.NumberOfObjectsInRange(mMap.mCombatDrones, 800) > 0 || mMap.NumberOfObjectsInRange(mMap.mFactoryDrones, 500) > 0)) && lIsValidTarget)
                 {
 
 
@@ -909,9 +909,9 @@ namespace SpaceChaseLib
 
 
                 //if the scout is very close to a black hole, override other thrust and leave the danger zone.
-                if (lIsBlackHoleDetected && mMap.CalculateDistanceFromScout(lClosestBlackHole.X, lClosestBlackHole.Y) < 200)
+                if (lIsBlackHoleDetected && mMap.CalculateDistanceFromScout(lClosestBlackHole.X, lClosestBlackHole.Y) < 250)
                 {
-                    lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 200, 1000);
+                    lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 250, 1200);
 
                     lTotalThrust.ThrustForward = lBlackHoleAvoidThrust.ThrustForward;
                     lTotalThrust.ThrustRight = lBlackHoleAvoidThrust.ThrustRight;
@@ -1166,7 +1166,7 @@ namespace SpaceChaseLib
             /// </summary>
             /// <param name="aSlowdown">A constant that determines how much the thrust descreases with distance to the target. A larger number slows it more dramatically, enter 1 for no slowdown.</param>
             /// <param name="aAccuracy"></param>
-            public ScoutThrustControls MoveToWaypoint(double aSlowdown = 200, double aAccuracy = 100, double aAngularVelSharpness = 40)
+            public ScoutThrustControls MoveToWaypoint(double aSlowdown = 200, double aAccuracy = 100, double aAngularVelSharpness = 50)
             {
                 //Makes sure that momevemnt is not attempted until a path exists.
                 if (mPath.Count < 2)
@@ -1197,7 +1197,7 @@ namespace SpaceChaseLib
             /// <param name="aAngularVelSharpness">How sharp the ship is allowed to turn. A lower value restricts the CWVelocity by less.</param>
             /// <param name="aSlowdown">A constant that determines how much the thrust descreases with distance to the target. A larger number slows it more dramatically, enter 1 for no slowdown.</param>
             /// <returns></returns>
-            public ScoutThrustControls MoveToTarget(double targetX, double targetY, double aSlowdown = 200, double aAngularVelSharpness = 40)
+            public ScoutThrustControls MoveToTarget(double targetX, double targetY, double aSlowdown = 200, double aAngularVelSharpness = 50)
             {
                 const double lMaxVelocity = 0.4;
                 ScoutThrustControls lThrustToTarget = new ScoutThrustControls();
@@ -1257,7 +1257,7 @@ namespace SpaceChaseLib
                 return lThrustToTarget;
             }
 
-            public ScoutThrustControls MoveAwayFromTarget(double targetX, double targetY, double aSpeedUp = 600, double aAngularVelSharpness = 40)
+            public ScoutThrustControls MoveAwayFromTarget(double targetX, double targetY, double aSpeedUp = 600, double aAngularVelSharpness = 50)
             {
 
 

@@ -905,8 +905,6 @@ namespace SpaceChaseLib
 
                 ScoutThrustControls lFactoryDroneAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mFactoryDrones);
 
-                ScoutThrustControls lAsteroidAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mAsteroids, 100, 50, 5);
-
 
                 //if the scout is very close to a black hole, override other thrust and leave the danger zone.
                 if (lIsBlackHoleDetected && mMap.CalculateDistanceFromScout(lClosestBlackHole.X, lClosestBlackHole.Y) < 250)
@@ -917,11 +915,14 @@ namespace SpaceChaseLib
                     lTotalThrust.ThrustRight = lBlackHoleAvoidThrust.ThrustRight;
                     lTotalThrust.ThrustCW = lBlackHoleAvoidThrust.ThrustCW;
 
-                    mScoutThrustControls = mNavigation.ApplyPID(lTotalThrust, mScoutState);
+                    //mScoutThrustControls = mNavigation.ApplyPID(lTotalThrust, mScoutState);
                     mScoutActionControls = GetActionControls();
                     return;
                 }
 
+                //Total forward thrust avalible 3
+                //total side thrust avalable 1.5
+                //total cw thrust 3
 
                 //weight everything
                 lTotalThrust.ThrustForward += lBlackHoleAvoidThrust.ThrustForward;
@@ -944,9 +945,6 @@ namespace SpaceChaseLib
                 lTotalThrust.ThrustRight += lWaypointThrust.ThrustRight;
                 lTotalThrust.ThrustCW += lWaypointThrust.ThrustCW;
 
-                lTotalThrust.ThrustForward += lAsteroidAvoidThrust.ThrustForward;
-                lTotalThrust.ThrustRight += lAsteroidAvoidThrust.ThrustRight;
-                lTotalThrust.ThrustCW += lAsteroidAvoidThrust.ThrustCW;
 
 
 
@@ -1482,13 +1480,13 @@ namespace SpaceChaseLib
                         case ObjectType.BlackHole:
                             if (mBlackHoles.ContainsKey(iRelativeForeignObject.mObjectID))
                             {
-                                if (mBlackHoles[iRelativeForeignObject.mObjectID].isAccurate)
+                                if (mBlackHoles[iRelativeForeignObject.mObjectID].isAccurate && !iRelativeForeignObject.FoundRange)
                                     break;
                             }
                             mBlackHoles[iRelativeForeignObject.mObjectID] = GlobalForeignObject.Convert(iRelativeForeignObject, mScoutPose);
                             break;
                         case ObjectType.Asteroid:
-                            if (mAsteroids.ContainsKey(iRelativeForeignObject.mObjectID))
+                            if (mAsteroids.ContainsKey(iRelativeForeignObject.mObjectID) && !iRelativeForeignObject.FoundRange)
                             {
                                 if (mAsteroids[iRelativeForeignObject.mObjectID].isAccurate)
                                     break;
@@ -1496,7 +1494,7 @@ namespace SpaceChaseLib
                             mAsteroids[iRelativeForeignObject.mObjectID] = GlobalForeignObject.Convert(iRelativeForeignObject, mScoutPose);
                             break;
                         case ObjectType.Distortion:
-                            if (mDistortions.ContainsKey(iRelativeForeignObject.mObjectID))
+                            if (mDistortions.ContainsKey(iRelativeForeignObject.mObjectID) && !iRelativeForeignObject.FoundRange)
                             {
                                 if (mDistortions[iRelativeForeignObject.mObjectID].isAccurate)
                                     break;

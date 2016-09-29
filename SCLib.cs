@@ -733,18 +733,18 @@ namespace SpaceChaseLib
 
             private void InTask4()
             {
-                think();
+                think(1, 300, true, 200, true);
 
             }
 
             private void InTask5()
             {
-                think();
+                think(1, 300, true, 200, true);
             }
 
             private void InTask6()
             {
-                think();
+                think(1, 300, true, 200, true);
             }
 
             public void EndTask(int task, bool IsScoutAlive)
@@ -763,7 +763,9 @@ namespace SpaceChaseLib
             public void InLevel(int levelNumber)
             {
                 mMap.TrackShip(mScoutState);
-                InTask4();
+                think(1, 300, true, 200, true);
+                if (levelNumber > 2)
+                    think(1, 300, true, 100, false);
             }
 
             public void EndLevel(int levelNumber, bool IsScoutAlive)
@@ -834,7 +836,7 @@ namespace SpaceChaseLib
                 isJavelinActive = false;
             }
 
-            public void think(double aSlowdown = 1, double aAccuracy = 400)
+            public void think(double aSlowdown = 1, double aAccuracy = 400, bool aDroneForward = true, double aDroneCriticalDistance = 200, bool aUseShieldAlways = false)
             {
                 ScoutThrustControls lTotalThrust = new ScoutThrustControls();
                 ScoutThrustControls lWaypointThrust = new ScoutThrustControls();
@@ -855,13 +857,13 @@ namespace SpaceChaseLib
                     double lDistanceAwayFromOtherBH = mMap.GetDistanceOfClosestObjectFromPoint(lClosestBlackHole, mMap.mBlackHoles);
                     double lValidBHTargetDistance = 320;
                     lIsValidTarget = lDistanceAwayFromOtherBH > lValidBHTargetDistance;
-                    lIsValidTarget = lIsValidTarget && lClosestBlackHole.X < 1450 && lClosestBlackHole.X > -1450 && lClosestBlackHole.Y < 1450 && lClosestBlackHole.Y > -1450;
+                    lIsValidTarget = lIsValidTarget && lClosestBlackHole.X < 1400 && lClosestBlackHole.X > -1400 && lClosestBlackHole.Y < 1400 && lClosestBlackHole.Y > -1400;
                 }
 
 
 
                 //Executes javalin prcedure if drones are in range and a black hole is detected
-                if (((mMap.NumberOfObjectsInRange(mMap.mCombatDrones, 800) > 0 || mMap.NumberOfObjectsInRange(mMap.mFactoryDrones, 500) > 0)) && lIsValidTarget)
+                if (((mMap.NumberOfObjectsInRange(mMap.mCombatDrones, 800) > 0 || mMap.NumberOfObjectsInRange(mMap.mFactoryDrones, 600) > 0)) && lIsValidTarget)
                 {
 
 
@@ -874,7 +876,7 @@ namespace SpaceChaseLib
                         pose lJavMidpoint = mMap.CalculateJavelinMidPoint(lTargetBlackHole.X, lTargetBlackHole.Y);
                         ScoutThrustControls lJavThrust = mNavigation.MoveToTarget(lJavMidpoint.X, lJavMidpoint.Y, 1);
                         mScoutThrustControls = mNavigation.ApplyPID(lJavThrust, mScoutState);
-                        mScoutActionControls = GetActionControls();
+                        mScoutActionControls = GetActionControls(aUseShieldAlways);
                         return;
 
 
@@ -882,8 +884,11 @@ namespace SpaceChaseLib
                     //Find orbit point
                     pose BHOrbitPoint = mMap.CalculateOrbitPoint(lTargetBlackHole.X, lTargetBlackHole.Y, 350);
 
+                    if (mMap.NumberOfObjectsInRange(mMap.mFactoryDrones, 600) > 0 && mMap.NumberOfObjectsInRange(mMap.mCombatDrones, 800) == 0)
+                        lWaypointThrust = mNavigation.MoveToTarget(BHOrbitPoint.X, BHOrbitPoint.Y, 300);
                     //Moves to orbit point
-                    lWaypointThrust = mNavigation.MoveToTarget(BHOrbitPoint.X, BHOrbitPoint.Y, 200);
+                    else
+                        lWaypointThrust = mNavigation.MoveToTarget(BHOrbitPoint.X, BHOrbitPoint.Y, 100);
                 }
 
                 else
@@ -897,32 +902,43 @@ namespace SpaceChaseLib
 
 
                 //get all of the avoid thrusts
-                ScoutThrustControls lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 250, 1200);
+                ScoutThrustControls lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 355, 350, 2200, false);
 
-                ScoutThrustControls lWallAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mWall, 200, 100, 1200);
+                ScoutThrustControls lWallAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mWall, 200, 200, 1200, false);
 
-                ScoutThrustControls lCombatDroneAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mCombatDrones);
+                ScoutThrustControls lCombatDroneAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mCombatDrones, 500, aDroneCriticalDistance, 600, aDroneForward);
 
-                ScoutThrustControls lFactoryDroneAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mFactoryDrones);
+                ScoutThrustControls lFactoryDroneAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mFactoryDrones, 400, aDroneCriticalDistance, 600, aDroneForward);
 
+                //Turns on shield if out of bounds
+                if (mMap.mScoutPose.X > 1400 || mMap.mScoutPose.X < -1400 || mMap.mScoutPose.Y > 1400 || mMap.mScoutPose.Y < -1400)
+                {
+                    mScoutThrustControls = mNavigation.ApplyPID(mNavigation.MoveToTarget(0, 0, 1), mScoutState);
+                    mScoutActionControls = GetActionControls(aUseShieldAlways);
+                    return;
+                }
 
                 //if the scout is very close to a black hole, override other thrust and leave the danger zone.
-                if (lIsBlackHoleDetected && mMap.CalculateDistanceFromScout(lClosestBlackHole.X, lClosestBlackHole.Y) < 250)
+                if (lIsBlackHoleDetected && mMap.CalculateDistanceFromScout(lClosestBlackHole.X, lClosestBlackHole.Y) < 300)
                 {
-                    lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 250, 1200);
+                    mNavigation.ReplaceWaypointAtFront(mNavigation.mPath[1]);
+                    lBlackHoleAvoidThrust = mNavigation.getObjectsAvoidThrust(mMap.mBlackHoles, 300, 300, 2200, false);
 
                     lTotalThrust.ThrustForward = lBlackHoleAvoidThrust.ThrustForward;
                     lTotalThrust.ThrustRight = lBlackHoleAvoidThrust.ThrustRight;
                     lTotalThrust.ThrustCW = lBlackHoleAvoidThrust.ThrustCW;
 
-                    //mScoutThrustControls = mNavigation.ApplyPID(lTotalThrust, mScoutState);
-                    mScoutActionControls = GetActionControls();
+                    mScoutThrustControls = lTotalThrust;
+                    mScoutThrustControls = mNavigation.ApplyPID(lTotalThrust, mScoutState);
+                    mScoutActionControls = GetActionControls(aUseShieldAlways);
                     return;
                 }
 
                 //Total forward thrust avalible 3
                 //total side thrust avalable 1.5
                 //total cw thrust 3
+
+
 
                 //weight everything
                 lTotalThrust.ThrustForward += lBlackHoleAvoidThrust.ThrustForward;
@@ -953,16 +969,12 @@ namespace SpaceChaseLib
 
                 //use PID calcuations and apply them to scout thrust.
                 mScoutThrustControls = mNavigation.ApplyPID(lTotalThrust, mScoutState);
-                mScoutActionControls = GetActionControls();
+                mScoutActionControls = GetActionControls(aUseShieldAlways);
 
-                //Turns on shield if out of bounds
-                if (mMap.mScoutPose.X > 1500 || mMap.mScoutPose.X < -1500 || mMap.mScoutPose.Y > 1500 || mMap.mScoutPose.Y < -1500)
-                {
-                    mScoutThrustControls = mNavigation.ApplyPID(mNavigation.MoveToTarget(0, 0, 1), mScoutState);
-                }
+
             }
 
-            private ScoutActionControls GetActionControls()
+            private ScoutActionControls GetActionControls(bool aUseShieldAlways)
             {
                 ScoutActionControls lScoutActionControls = new ScoutActionControls();
                 lScoutActionControls.ShieldOn = false;
@@ -988,7 +1000,7 @@ namespace SpaceChaseLib
                     double lDistanceToCombatDrone = mMap.CalculateDistanceFromScout(lClosestCombatDrone.X, lClosestCombatDrone.Y);
                     double lCriticalCombatDroneDistance = 60;
 
-                    if (lDistanceToCombatDrone < lCriticalCombatDroneDistance && mScoutState.hullIntegrity < 0.5)
+                    if (lDistanceToCombatDrone < lCriticalCombatDroneDistance && (mScoutState.hullIntegrity < 0.5 || aUseShieldAlways))
                     {
                         lScoutActionControls.ShieldOn = true;
                     }
@@ -1047,7 +1059,7 @@ namespace SpaceChaseLib
             public PID mYPID = new PID();
             public PID mRotationalPID = new PID();
 
-            List<pose> mPath = new List<pose>();
+            public List<pose> mPath = new List<pose>();
 
             /// <summary>
             /// Called once at the begining of the game to establish references
@@ -1321,7 +1333,7 @@ namespace SpaceChaseLib
             /// Calculates the thrust needed to avoid any number of black holes close to the scout.
             /// </summary>
             /// <returns>Returns the calculated thrust needed to flee from the black hole.</returns>
-            public ScoutThrustControls getObjectsAvoidThrust(Dictionary<int, GlobalForeignObject> aObjects, double aAvoidDistance = 300, double aCriticalDistance = 100, double aSpeedup = 600)
+            public ScoutThrustControls getObjectsAvoidThrust(Dictionary<int, GlobalForeignObject> aObjects, double aAvoidDistance = 300, double aCriticalDistance = 100, double aSpeedup = 600, bool isPushingForward = false)
             {
                 ScoutThrustControls lTotalAvoidanceThrust = new ScoutThrustControls();
                 int lObjectsInRangeCount = 0;
@@ -1340,15 +1352,10 @@ namespace SpaceChaseLib
 
 
 
-                        if (lRangeToObject < aCriticalDistance)
-                        {
-                            lTotalAvoidanceThrust.ThrustForward += lThrustAwayFromObject.ThrustForward;
-                            lTotalAvoidanceThrust.ThrustCW += lThrustAwayFromObject.ThrustCW;
-                            lTotalAvoidanceThrust.ThrustRight += lThrustAwayFromObject.ThrustRight;
-                        }
 
-                        // If the angle is within the cone or super close act on other thrust
-                        else if ((lAngleToObject < Math.PI / 3 && lAngleToObject > 0 - Math.PI / 3) || (lAngleToObject > (Math.PI * 2 - Math.PI / 3) && lAngleToObject < Math.PI * 2 + Math.PI / 3))
+
+                        //// If the angle is within the cone or super close act on other thrust
+                        if (isPushingForward && (lAngleToObject < Math.PI / 3 && lAngleToObject > 0 - Math.PI / 3) || (lAngleToObject > (Math.PI * 2 - Math.PI / 3) && lAngleToObject < Math.PI * 2 + Math.PI / 3))
                         {
 
 
@@ -1358,6 +1365,18 @@ namespace SpaceChaseLib
                             }
                             lTotalAvoidanceThrust.ThrustCW += lThrustAwayFromObject.ThrustCW;
                             lTotalAvoidanceThrust.ThrustRight += lThrustAwayFromObject.ThrustRight;
+                        }
+
+                        else if (lRangeToObject < aCriticalDistance)
+                        {
+
+                            lTotalAvoidanceThrust.ThrustForward += lThrustAwayFromObject.ThrustForward;
+                            lTotalAvoidanceThrust.ThrustCW += lThrustAwayFromObject.ThrustCW;
+                            lTotalAvoidanceThrust.ThrustRight += lThrustAwayFromObject.ThrustRight;
+                        }
+                        else
+                        {
+                            //lTotalAvoidanceThrust.ThrustRight += lThrustAwayFromObject.ThrustRight/2;
                         }
 
 
@@ -1663,6 +1682,11 @@ namespace SpaceChaseLib
                     }
 
                     double lDistanceToThisObject = CalculateDistanceFromPoint(aPoint.X, aPoint.Y, iObjectKeyValue.Value.mXCoord, iObjectKeyValue.Value.mYCoord);
+
+                    //if (!iObjectKeyValue.Value.isAccurate && lDistanceToThisObject < 600)
+                    //{
+                    //    lDistanceToThisObject = 100;
+                    //}
 
                     //If the object in this itteration is closer then the closest object, replace it.
                     if (lDistanceToThisObject < lClosetObjectDistance)

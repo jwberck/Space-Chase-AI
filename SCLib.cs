@@ -1475,15 +1475,32 @@ namespace SpaceChaseLib
 
                 foreach (RelativeForeignObject iRelativeForeignObject in aRelativeForeignObjects)
                 {
+
+
                     switch (iRelativeForeignObject.mTypeOfObject)
                     {
                         case ObjectType.BlackHole:
+                            if (mBlackHoles.ContainsKey(iRelativeForeignObject.mObjectID))
+                            {
+                                if (mBlackHoles[iRelativeForeignObject.mObjectID].isAccurate)
+                                    break;
+                            }
                             mBlackHoles[iRelativeForeignObject.mObjectID] = GlobalForeignObject.Convert(iRelativeForeignObject, mScoutPose);
                             break;
                         case ObjectType.Asteroid:
+                            if (mAsteroids.ContainsKey(iRelativeForeignObject.mObjectID))
+                            {
+                                if (mAsteroids[iRelativeForeignObject.mObjectID].isAccurate)
+                                    break;
+                            }
                             mAsteroids[iRelativeForeignObject.mObjectID] = GlobalForeignObject.Convert(iRelativeForeignObject, mScoutPose);
                             break;
                         case ObjectType.Distortion:
+                            if (mDistortions.ContainsKey(iRelativeForeignObject.mObjectID))
+                            {
+                                if (mDistortions[iRelativeForeignObject.mObjectID].isAccurate)
+                                    break;
+                            }
                             mDistortions[iRelativeForeignObject.mObjectID] = GlobalForeignObject.Convert(iRelativeForeignObject, mScoutPose);
                             break;
                         case ObjectType.CombatDrone:
@@ -1754,6 +1771,7 @@ namespace SpaceChaseLib
         {
             public int mObjectID;
             public ObjectType mTypeOfObject;
+            public bool isAccurate = false;
 
             public double mXCoord = 0;
             public double mYCoord = 0;
@@ -1785,6 +1803,10 @@ namespace SpaceChaseLib
                         default:
                             throw new InvalidOperationException();
                     }
+                }
+                else
+                {
+                    lGFO.isAccurate = true;
                 }
 
 
